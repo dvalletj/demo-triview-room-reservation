@@ -1,0 +1,755 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2015-2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../iron-image/iron-image.html">
+<link rel="import" href="../iron-dropdown/iron-dropdown.html">
+
+<link rel="import" href="../paper-dialog/paper-dialog.html">
+<link rel="import" href="../paper-button/paper-button.html">
+<link rel="import" href="../paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../paper-listbox/paper-listbox.html">
+<link rel="import" href="../paper-item/paper-item.html">
+
+<link rel="import" href="../neon-animation/animations/scale-up-animation.html">
+
+<link rel="import" href="../triplat-ds/triplat-ds.html">
+<link rel="import" href="../triplat-debug/triplat-debug.html">
+<link rel="import" href="../triplat-datetime-picker/triplat-datetime-picker.html">
+<link rel="import" href="../triplat-date-picker/triplat-date-picker.html">
+<link rel="import" href="../triplat-date-utilities/triplat-date-utilities.html">
+<link rel="import" href="../triplat-icon/triplat-icon.html">
+
+<link rel="import" href="../triplat-loading-indicator/triplat-loading-indicator.html">
+
+<link rel="import" href="triplat-countdown.html">
+<link rel="import" href="tricomp-lifecyle-events.html">
+
+<link rel="import" href="theme.html">
+
+<dom-module id="tricomp-reservation-item">
+
+	<link rel="import" type="css" href="shared.css">
+
+	<style>
+
+		:host {
+			@apply(--layout-vertical);
+			position: relative;
+			border-bottom: 1px solid var(--ibm-gray-10);
+		}
+
+		:host:last-of-type {
+			border-bottom: none;
+		}
+
+		:host:nth-of-type(even) {
+			background-color: var(--ibm-neutral-2);
+		}
+
+		.reservation-item-container {
+			@apply(--layout-horizontal);
+			padding: 10px 0 10px 10px;
+		}
+
+		.reservation-details-container {
+			@apply(--layout-flex);
+			min-width: 0px;
+			@apply(--layout-vertical);
+			@apply(--layout-center-justified);
+		}
+
+		.subject {
+			font-size: 18px;
+			font-weight: bold;
+			@apply(--paper-font-common-nowrap);
+		}
+
+		.room-item-container {
+			@apply(--layout-horizontal);
+			padding-top: 10px;
+		}
+
+		.image-container {
+			padding-right: 10px;
+		}
+
+		iron-image {
+			width: 63px;
+			height: 63px;
+		}
+
+		.room-image-placeholder-icon {
+			--triplat-icon-height: 63px;
+			--triplat-icon-width: 63px;
+			--triplat-icon-fill-color: var(--tri-primary-content-accent-color);
+		}
+
+		.room-details-container {
+			@apply(--layout-flex);
+			min-width: 0;
+			@apply(--layout-vertical);
+		}
+
+		.time-details-container {
+			@apply(--layout-horizontal);
+		}
+
+		.recurring-icon-container {
+			@apply(--layout-vertical);
+			@apply(--layout-center-center);
+			padding: 0 8px 6px 5px;
+		}
+
+		.recurring-icon {
+			color: var(--ibm-gray-40);
+			width: 32px;
+			height: 32px;
+		}
+
+		.times-container {
+			@apply(--layout-horizontal);
+			@apply(--layout-wrap);
+			padding-bottom: 6px;
+		}
+
+		.multi-day-times-container {
+			@apply(--layout-vertical);
+			padding-bottom: 6px;
+		}
+
+		.time-container {
+			@apply(--layout-horizontal);
+			@apply(--layout-center);
+		}
+
+		triplat-datetime-picker {
+			font-size: 16px;
+		}
+
+		.time {
+			font-weight: bold;
+			padding-right: 12px;
+		}
+
+		.room-container {
+			@apply(--layout-horizontal);
+			@apply(--layout-center);
+			padding-bottom: 6px;
+		}
+
+		.room {
+			padding-right: 8px;
+			font-size: 20px;
+			@apply(--paper-font-common-nowrap);
+		}
+
+		.divider-line {
+			border-left: 1px solid var(--tri-primary-content-accent-color);
+			padding-left: 5px;
+			height: 16px;
+		}
+
+		.favorite-icon {
+			flex-shrink: 0;
+			padding: 4px;
+			height: 32px;
+			width: 32px;
+		}
+
+		.building, .floor {
+			font-size: 14px;
+			@apply(--paper-font-common-nowrap);
+		}
+
+		.bookingStatus {
+			font-weight: bolder;
+			color: red;
+		}
+
+		.drill-container {
+			@apply(--layout-vertical);
+			@apply(--layout-center-center);
+			@apply(--layout-end);
+			width: 10%;
+			cursor: pointer;
+		}
+
+		.actions-container {
+			@apply(--layout-horizontal);
+			border-top: 1px solid var(--tri-primary-content-accent-color);
+			margin: 0px 10px 10px 10px;
+			padding-top: 10px;
+		}
+
+		.delete-button {
+			@apply(--layout-flex-3);
+			font-size: 16px;
+		}
+
+		tricomp-lifecyle-events {
+			@apply(--layout-flex-9);
+		}
+
+		.dialog-buttons {
+			@apply(--layout-horizontal);
+			@apply(--layout-end-justified);
+		}
+
+		.dropdown-content {
+			background-color: white;
+			box-shadow: 2px 2px 2px 2px var(--ibm-gray-60);
+		}
+
+			paper-listbox {
+				user-select: none;
+			}
+
+			paper-item {
+				color: var(--tri-primary-color);
+				cursor: pointer;
+				@apply(--tri-font-family);
+			}
+
+		.warning-text { 
+			color: red;
+			font-weight: bold;
+		}
+
+		.alert-message {
+			margin: 10px 10px 5px 0;
+		}
+
+	</style>
+
+	<template>
+		<triplat-ds id="currentUser" name="currentUser" data="{{currentUser}}"></triplat-ds>
+
+		<triplat-ds name="applicationSettings" data="{{applicationSettings}}"></triplat-ds>
+
+		<tricore-url raw-url="/getCompanyFile.jsp?fileLoc=" bind-url="{{imgUrl}}"></tricore-url>
+
+		<triplat-ds id="reservationResources" name="reservationResources" data="{{reservationResources}}" loading="{{reservationResourcesLoading}}">
+			<triplat-ds-context name="reservationDefinition" context-id="[[eventItem.recordId]]"></triplat-ds-context>
+		</triplat-ds>
+		<tricomp-array-comparator
+				source="{{reservationResources}}"
+				source-match-field="roomId"
+				compare-to="{{favoriteRooms}}"
+				match-flag="isFavorite"
+				update-source>
+		</tricomp-array-comparator>
+		<!-- <triplat-debug message="tricomp-reservation-item.reservationResources" value="{{reservationResources}}"></triplat-debug> -->
+		<!-- <triplat-debug message="tricomp-reservation-item.favoriteRooms" value="{{favoriteRooms}}"></triplat-debug> -->
+
+		<triplat-loading-indicator show="[[_isBusy(isBusy, reservationResourcesLoading)]]" hide-background></triplat-loading-indicator>
+
+		<div class="reservation-item-container">
+			<div class="reservation-details-container">
+				<div class="subject" hidden$="[[!eventItem.subject]]">{{eventItem.subject}}</div>
+				
+				<!-- <div id="outlook-reservation" hidden$="[[!eventItem.iCalUID]]" class="icaluid"><iron-icon icon="ibm:info-moreinfo"></iron-icon>&nbsp;Outlook</div>
+				<paper-tooltip for="outlook-reservation" position="bottom" offset="5" animation-delay="100" fit-to-visible-bounds>This reservation was created in Outlook. You can open this reservation, but you will need to use Outlook to make changes.</paper-tooltip> -->
+
+				<template is="dom-if" if="[[!_reservationHasLocations(reservationResources)]]">
+					<div class="room-item-container">
+						<div class="recurring-icon-container" hidden$="[[!_isSeries(eventItem)]]">
+							<iron-icon icon="ibm:recurring" class="recurring-icon" hidden$="[[_isSeriesException(eventItem)]]"></iron-icon>
+							<iron-icon icon="ibm:recurring-exception" class="recurring-icon" hidden$="[[!_isSeriesException(eventItem)]]"></iron-icon>
+						</div>
+						<div class$="{{_computeTimesContainerClass(eventItem._Start_Datetime, eventItem._End_Datetime, currentUser._TimeZoneId)}}" hidden$="[[eventItem._All_Day]]">
+							<div class="time-container">
+								<iron-icon icon="av:play-arrow" class="start-reservation-time-icon"></iron-icon>
+								<triplat-datetime-picker
+									class="time"
+									value="{{eventItem._Start_Datetime}}" 
+									display-format="{{_computeTimeDisplayFormat(currentUser._DateTimeFormat)}}" 
+									time-zone="{{currentUser._TimeZoneId}}"
+									readonly></triplat-datetime-picker>
+								<triplat-datetime-picker
+									hidden$="{{_isSameDate(currentUser._TimeZoneId, eventItem._Start_Datetime, eventItem._End_Datetime)}}"
+									value="{{eventItem._Start_Datetime}}" 
+									display-format="{{_computeDateDisplayFormat(currentUser._DateTimeFormat)}}" 
+									time-zone="{{currentUser._TimeZoneId}}"
+									readonly></triplat-datetime-picker>
+							</div>
+							<div class="time-container">
+								<iron-icon icon="av:stop" class="end-reservation-time-icon"></iron-icon>
+								<triplat-datetime-picker
+									class="time"
+									value="{{eventItem._End_Datetime}}" 
+									display-format="{{_computeTimeDisplayFormat(currentUser._DateTimeFormat)}}"
+									time-zone="{{currentUser._TimeZoneId}}"
+									readonly></triplat-datetime-picker>
+								<triplat-datetime-picker
+									hidden$="{{_isSameDate(currentUser._TimeZoneId, eventItem._Start_Datetime, eventItem._End_Datetime)}}"
+									value="{{eventItem._End_Datetime}}" 
+									display-format="{{_computeDateDisplayFormat(currentUser._DateTimeFormat)}}" 
+									time-zone="{{currentUser._TimeZoneId}}"
+									readonly></triplat-datetime-picker>
+							</div>
+						</div>
+					</div>
+				</template>
+
+				<template is="dom-repeat" items="[[reservationResources]]">
+					<div class="room-item-container">
+						<template is="dom-if" if="[[_showImage(applicationSettings)]]">
+							<div class="image-container">
+								<iron-image src="{{_computeImageUrl(item.image, imgUrl)}}" sizing="cover" hidden$="[[!roomImageLoaded]]" loaded="{{roomImageLoaded}}"></iron-image>
+								<triplat-icon class="room-image-placeholder-icon" icon="picturefile" hidden$="[[roomImageLoaded]]"></triplat-icon>
+							</div>
+						</template>
+						<div class="room-details-container">
+							<div class="time-details-container">
+								<div class="recurring-icon-container" hidden$="[[!_isSeries(eventItem)]]">
+									<iron-icon icon="ibm:recurring" class="recurring-icon" hidden$="[[_isSeriesException(eventItem)]]"></iron-icon>
+									<iron-icon icon="ibm:recurring-exception" class="recurring-icon" hidden$="[[!_isSeriesException(eventItem)]]"></iron-icon>
+								</div>
+								<div class$="{{_computeTimesContainerClass(eventItem._Start_Datetime, eventItem._End_Datetime, currentUser._TimeZoneId)}}" hidden$="[[eventItem._All_Day]]">
+									<div class="time-container">
+										<iron-icon icon="av:play-arrow" class="start-reservation-time-icon"></iron-icon>
+										<triplat-datetime-picker
+											class="time"
+											value="{{eventItem._Start_Datetime}}" 
+											display-format="{{_computeTimeDisplayFormat(currentUser._DateTimeFormat)}}" 
+											time-zone="{{currentUser._TimeZoneId}}"
+											readonly></triplat-datetime-picker>
+										<triplat-datetime-picker
+											hidden$="{{_isSameDate(currentUser._TimeZoneId, eventItem._Start_Datetime, eventItem._End_Datetime)}}"
+											value="{{eventItem._Start_Datetime}}" 
+											display-format="{{_computeDateDisplayFormat(currentUser._DateTimeFormat)}}" 
+											time-zone="{{currentUser._TimeZoneId}}"
+											readonly></triplat-datetime-picker>
+									</div>
+									<div class="time-container">
+										<iron-icon icon="av:stop" class="end-reservation-time-icon"></iron-icon>
+										<triplat-datetime-picker
+											class="time"
+											value="{{eventItem._End_Datetime}}" 
+											display-format="{{_computeTimeDisplayFormat(currentUser._DateTimeFormat)}}"
+											time-zone="{{currentUser._TimeZoneId}}"
+											readonly></triplat-datetime-picker>
+										<triplat-datetime-picker
+											hidden$="{{_isSameDate(currentUser._TimeZoneId, eventItem._Start_Datetime, eventItem._End_Datetime)}}"
+											value="{{eventItem._End_Datetime}}" 
+											display-format="{{_computeDateDisplayFormat(currentUser._DateTimeFormat)}}" 
+											time-zone="{{currentUser._TimeZoneId}}"
+											readonly></triplat-datetime-picker>
+									</div>
+								</div>
+							</div>
+							<div class="room-container">
+								<span class="room">{{item.location}}</span>
+								<span class="divider-line"></span>
+								<paper-icon-button class="favorite-icon" favorited$="[[item.isFavorite]]" icon="[[_computeFavIcon(item.isFavorite)]]" on-tap="_handleToggleRoomFavorite"></paper-icon-button>
+							</div>
+							<div class="building">{{item.building}}</div>
+							<div class="floor">{{item.floor}}</div>
+							<div hidden$="[[!item.bookingStatus]]" class="bookingStatus">{{item.bookingStatus}}</div>
+							<!-- <div hidden$="[[!_computeIsPendingApproval(item.status)]]" class="bookingStatus">This room has not yet been approved.</div> -->
+
+							<tricomp-alert-message danger id="approvalMessage" class="alert-message" hidden$="[[!_computeIsPendingApproval(item.status)]]">This room has not yet been approved.</tricomp-alert-message>
+						</div>
+					</div>
+
+				</template>
+			</div>
+			<div class="drill-container" hidden="[[_isSeries(eventItem)]]" on-tap="_handleOpenReservation">
+				<paper-icon-button 
+					primary
+					icon="icons:chevron-right"></paper-icon-button>
+			</div>
+			<div class="drill-container dropdown-trigger" hidden="[[!_isSeries(eventItem)]]" on-tap="_openDropdown">
+				<paper-icon-button 
+					primary
+					icon="icons:more-vert"></paper-icon-button>
+			</div>
+			<iron-dropdown id="dropdown" horizontal-align="right" vertical-align="bottom">
+				<paper-listbox class="dropdown-content">
+					<paper-item on-tap="_handleOpenReservation">Open Occurrence</paper-item>
+					<paper-item on-tap="_handleOpenSeriesReservation">Open Series</paper-item>
+				</paper-listbox>
+			</iron-dropdown>
+		</div>
+		<div class="actions-container">
+			<paper-button 
+				id="delete"
+				class="delete-button"
+				danger-outline
+				hidden$="[[!_isShowDelete(eventItem.iCalUID, isStarted)]]" 
+				on-tap="_handleCancel" 
+				noink>Cancel</paper-button>
+			<paper-button 
+				id="delete"
+				class="delete-button"
+				danger-outline
+				hidden$="[[!_isShowSeriesDelete(eventItem, eventItem.iCalUID, isStarted)]]" 
+				on-tap="_handleCancelSeries" 
+				noink>Cancel Series</paper-button>
+			<tricomp-lifecyle-events
+				id="lifecyle"
+				is-started="{{isStarted}}"
+				disabled="[[_hasDeclinedRooms(reservationResources)]]"
+				timezone="[[currentUser._TimeZoneId]]"
+				check-in-required="[[reservationInstance.checkInRequired]]"
+				check-in-reminder="[[reservationInstance.checkInReminderDateTime]]"
+				check-in-auto-cancel="[[reservationInstance.cancellationAutoDateTime]]"
+				planned-start="[[reservationInstance.startDateTime]]"
+				planned-end="[[reservationInstance.endDateTime]]"
+				actual-start="[[reservationInstance.actualStart]]"
+				actual-end="[[reservationInstance.actualEnd]]"
+				reservation-instance="[[reservationInstance]]"
+				on-checkin="_handleCheckIn"
+				on-checkout="_handleCheckOut"
+				on-earlyend="_handleEarlyEnd"
+				on-start="_handleStart"
+				on-end="_handleEnd"
+				on-autocancel="_handleAutoCancel">
+			</tricomp-lifecyle-events>
+		</div>	
+
+		<paper-dialog id="cancelDialog" entry-animation="scale-up-animation" exit-animation="fade-out-animation">
+			<p>Are you sure you want to cancel this reservation?</p>
+			<div class="dialog-buttons">
+				<paper-button secondary-outline dialog-dismiss>No</paper-button>
+				<paper-button dialog-confirm autofocus>Yes</paper-button>
+			</div>
+		</paper-dialog>
+
+		<paper-dialog id="cancelSeriesDialog" entry-animation="scale-up-animation" exit-animation="fade-out-animation">
+			<p>
+				Are you sure you want to cancel this reservation series?<br /> 
+				<span class="warning-text">Warning:</span> This will remove all occurrences and exceptions.
+			</p>
+			<div class="dialog-buttons">
+				<paper-button secondary-outline dialog-dismiss>No</paper-button>
+				<paper-button dialog-confirm autofocus>Yes</paper-button>
+			</div>
+		</paper-dialog>
+	</template>
+</dom-module>
+<script>
+	Polymer({
+
+		is: "tricomp-reservation-item",
+		behaviors: [RoomReservationBehavior, TriDateUtilities],
+
+		properties: {
+			favoriteRooms: Array,
+			/*reservationResources: {
+				type: Array,
+				observer: '_itemsChanged'
+			},*/
+			eventItem: {
+				type: Object,
+				value: null,
+				observer: '_eventItemChanged'
+			},
+			reservationInstance: {
+				type: Object,
+			},
+			disabled: {
+				type: Boolean,
+				value: false
+			},
+			enableCountdown: {
+				type: Boolean,
+				value: true
+			},
+			isStarted: {
+				type: Boolean,
+				value: false
+			},
+		},
+
+		listeners: {
+			'cancelDialog.iron-overlay-closed': '_handleCancelDialogClose',
+			'cancelSeriesDialog.iron-overlay-closed': '_handleCancelSeriesDialogClose',
+		},
+
+		_computeIsPendingApproval: function(status) {
+			return status == 'Review In Progress';
+		},
+
+		_reservationHasLocations: function(reservationResources) {
+			return Boolean(reservationResources) && reservationResources.length > 0;
+		},
+
+		_computeTimeDisplayFormat: function(userDateTimeFormat) {
+			if (userDateTimeFormat) {
+				var dateTimeFormatSplit = userDateTimeFormat.trim().split(" ");
+				var time = dateTimeFormatSplit[1];
+				var amPm = dateTimeFormatSplit.length > 2 ? dateTimeFormatSplit[2] : null;
+
+				return amPm && amPm.indexOf("a") > -1 ? time + amPm : time;
+			}
+		},
+
+		_computeDateDisplayFormat: function(userDateTimeFormat) {
+			if (userDateTimeFormat) {
+				var dateTimeFormatSplit = userDateTimeFormat.trim().split(" ");
+				return dateTimeFormatSplit[0].startsWith("dd") || dateTimeFormatSplit[0].endsWith("dd") ? "dddd, DD MMMM" : "dddd, MMMM DD";
+			}
+		},
+
+		_hasDeclinedRooms: function(reservationResources) {
+			var hasDeclinedRooms = false;
+			if (reservationResources && reservationResources.length > 0) {
+				for (var i = 0; i < reservationResources.length; i++) {
+					var room = reservationResources[i];
+					if (room.bookingStatus) {
+						hasDeclinedRooms = true;
+						break;
+					}
+				}
+			}
+			return hasDeclinedRooms;
+		},
+
+		_openDropdown: function() {
+			this.$.dropdown.open();
+		},
+
+		_closeDropdown: function() {
+			this.$.dropdown.close();
+		},
+
+		_isBusy: function(isBusy, reservationResourcesLoading) {
+			return isBusy || reservationResourcesLoading;
+		},
+
+		_isShowDelete: function(iCalUID, isStarted) {
+			return !iCalUID && !isStarted;
+		},
+
+		_isShowSeriesDelete: function(eventItem, iCalUID, isStarted) {
+			return this._isSeries(eventItem) && !iCalUID && !isStarted;
+		},
+
+		_isSeries: function(eventItem) {
+			return eventItem._Part_of_Recurring_Event;
+		},
+
+		_eventItemChanged: function(value, oldValue) {
+			// console.log("_eventItemChanged");
+			// console.log(value);
+			// console.log(oldValue);
+
+			if (!this.reservationInstance) {
+				this.set("reservationInstance", value.reservationInstance);
+			}
+		},
+
+		_isSeriesException: function(eventItem) {
+			return eventItem._Recurring_Event_Exception;
+
+		},
+
+		_refresh: function() {
+			// console.log("_refresh");
+			this.$.reservationResources.refresh();
+		},
+
+		/*_itemsChanged: function(items) {
+			// console.log("_itemsChanged");
+			// console.log(items);
+
+			if (items) {
+				for (var i = 0; i < items.length; i++) {
+					var item = items[i];
+					this._itemChanged(item);
+				}
+			}
+		},
+
+		_itemChanged: function(item) {
+			// console.log("_itemChanged");
+			// console.log(item);
+
+			if (item) {
+				item.isFavorite = this._isRoomFavorite(item.roomId, this.favoriteRooms);
+			}
+		},*/
+
+		_getEventId: function(event) {
+			if (!event._Event_Id) {
+				return event._Master_Recurring_Event_Id;
+			}
+
+			return event._Event_Id;
+		},
+
+		_handleCancel: function(e) {
+			// console.log("tripage-reservation-summary._handleCancel");
+			this.$.cancelDialog.open();
+		},
+
+		_handleCancelSeries: function(e) {
+			// console.log("tripage-reservation-summary._handleCancelSeries");
+			this.$.cancelSeriesDialog.open();
+		},
+
+		_handleCancelDialogClose: function(e, detail) {
+			if (detail && detail.confirmed) {
+				this._doCancel();
+			}
+		},
+
+		_handleCancelSeriesDialogClose: function(e, detail) {
+			if (detail && detail.confirmed) {
+				this._doCancelSeries();
+			}
+		},
+
+		_doCancel: function(e) {
+			var occurrenceStart = null;
+			var occurrenceEnd = null;
+			if (this._isSeries(this.eventItem)) {
+				occurrenceStart = this.eventItem._Start_Datetime;
+				occurrenceEnd = this.eventItem._End_Datetime;
+			}
+
+			this.fire("action-cancel-from-list", { 'reservationId' : this._getReservationDefinitionSpecId(),
+													'occurrenceStart' : occurrenceStart,
+													'occurrenceEnd' : occurrenceEnd});
+		},
+
+		_doCancelSeries: function(e) {
+			this.fire("action-cancel-from-list", { 'reservationId' : this._getReservationDefinitionSeriesSpecId(),
+													'occurrenceStart' : null,
+													'occurrenceEnd' : null});
+		},
+
+		_handleToggleRoomFavorite: function(e) {
+			e.stopPropagation();
+
+			/*var roomId = this.item.roomId;
+			this.set("item.isFavorite", !this.item.isFavorite);
+			this.fire("action-toggle-room-favorite", { 'roomId' : roomId, 'isFavorite' : this.item.isFavorite });*/
+
+			var roomId = e.model.item.roomId;
+			var isFavorite = e.model.item.isFavorite;
+			this.fire("action-toggle-room-favorite", { 'roomId': roomId, 'isFavorite': !isFavorite });
+		},
+
+		_computeFavIcon: function(isFav) {
+			return isFav ? "icons:favorite" : "icons:favorite-border";
+		},
+
+		_handleCheckIn: function(e) {
+			// var elem = e.currentTarget;
+			// elem.disabled = true;
+
+			this.fire("action-checkin-from-list", { 'instanceId' : this._getReservationInstanceSpecId()});
+		},
+
+		_handleCheckOut: function(e) {
+			// var elem = e.currentTarget;
+			// elem.disabled = true;
+
+			this.fire("action-checkout-from-list", { 'instanceId' : this._getReservationInstanceSpecId()});
+		},
+
+		_handleEarlyEnd: function(e) {
+			// var elem = e.currentTarget;
+			// elem.disabled = true;
+
+			this.fire("action-earlyend-from-list", { 'instanceId' : this._getReservationInstanceSpecId()});
+		},
+
+		_handleStart: function(e) {
+			console.log("meeting has started...");
+			if (this.reservationInstance.cancellationAutoDateTime) {
+				console.log("this meeting has an auto-cancellation policy - skipping auto start");
+			} else {
+				this.set("instance.actualStart", new Date());
+			}
+		},
+
+		_handleEnd: function(e) {			
+			console.log("meeting has ended...");
+			this.set("instance.actualEnd", new Date());
+			this.async(function() {
+				// console.log("refreshing list...");
+				// this.fire("refresh-reservation-list");
+			}, 5000);
+		},
+
+		_handleAutoCancel: function(e) {
+			console.log("meeting has been auto cancelled...");
+			if (this.reservationInstance.cancellationAutoDateTime) {
+				this.set("instance.actualStart", "-1");
+				this.set("instance.actualEnd", "-1");
+			}
+		},
+
+		_getReservationInstanceSpecId: function() {
+			// return this.reservationInstance._id;
+			if (this.reservationInstance)
+				return this.reservationInstance._id;
+
+			return null;
+		},
+
+		_getReservationDefinitionSpecId: function() {
+			return this.eventItem.recordId;
+		},
+
+		_getReservationDefinitionSeriesSpecId: function() {
+			return this.eventItem.seriesId ? this.eventItem.seriesId : this._getReservationDefinitionSpecId();
+		},
+
+		_handleOpenReservation: function(e) {
+			// console.log("tricomp-reservation-list-item._handleOpenReservation");
+			// console.log(e);
+
+			e.stopPropagation();
+
+			var occurrenceStart = null;
+			var occurrenceEnd = null;
+			if (this._isSeries(this.eventItem)) {
+				occurrenceStart = this.eventItem._Start_Datetime;
+				occurrenceEnd = this.eventItem._End_Datetime;
+			}
+
+			this.fire("navigate-reservation-open", { 'reservationId' : this._getReservationDefinitionSpecId(),
+													 'occurrenceStart' : occurrenceStart,
+													 'occurrenceEnd' : occurrenceEnd,
+													 'iCalUID' : this.eventItem.iCalUID});
+		},
+
+		_handleOpenSeriesReservation: function(e) {
+			console.log("tricomp-reservation-list-item._handleOpenSeriesReservation");
+			// console.log(e);
+
+			e.stopPropagation();
+
+			// ACM TODO: e.stopPropagation() if it's tapping on the heart icon
+			// if possible, find a way to make the heart icon invulnerable to this
+			this.fire("navigate-reservation-open", { 'reservationId' : this._getReservationDefinitionSeriesSpecId(),
+													 'occurrenceStart' : null,
+													 'occurrenceEnd' : null,
+													 'iCalUID' : this.eventItem.iCalUID});
+		},
+
+		_computeTimesContainerClass: function(startDateTime, endDateTime, timezone) {
+			if (this._isSameDate(timezone, startDateTime, endDateTime)) {
+				return "times-container";
+			} else {
+				return "multi-day-times-container";
+			}
+		},
+
+		// ACM FIXME: Use triplat-date-utilities function (Yong enh)
+		_isSameDate: function(timezone, datetime1, datetime2) {
+			if (!datetime2) {
+				datetime2 = new Date();
+			}
+
+			var d1Mo = moment(datetime1).tz(timezone);
+			var d2Mo = moment(datetime2).tz(timezone);
+
+			return d1Mo.isSame(d2Mo, 'day');
+		}
+	});
+</script>

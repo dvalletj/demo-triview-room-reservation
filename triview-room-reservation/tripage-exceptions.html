@@ -1,0 +1,845 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<link rel="import" href="../paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../paper-button/paper-button.html">
+<link rel="import" href="../iron-collapse/iron-collapse.html">
+
+<link rel="import" href="../paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../paper-listbox/paper-listbox.html">
+
+<link rel="import" href="../triplat-date-utilities/triplat-date-utilities.html">
+<link rel="import" href="../triblock-table/triblock-table.html">
+
+<link rel="import" href="room-reservation-behavior.html">
+<link rel="import" href="room-reservation-page-behavior.html">
+
+<link rel="import" href="tricomp-amenities-list.html">
+<link rel="import" href="tricomp-alert-message.html">
+
+<dom-module id="tripage-exceptions">
+
+	<link rel="import" type="css" href="shared.css">
+
+	<style>
+
+		:host {
+			@apply(--layout-vertical);
+		}
+
+		.amenities-list {
+			@apply(--layout-flex);
+		}
+
+		.attendees-input {
+			padding-top: 0;
+		}
+
+		.auto-assign-icon {
+			color: var(--tri-warning-color);
+			padding-right: 5px;
+			flex-shrink: 0;
+		}
+		.auto-assign-label-container {
+			@apply(--layout-horizontal);
+			@apply(--layout-center);
+		}
+
+		.exceptions-table {
+			--triblock-table-font-size: 16px;
+		}
+		.exceptions-table-action-buttons-column {
+			--triblock-table-column-fixed-width: 64px;
+		}
+		.exceptions-table-date-column {
+			--triblock-table-column-fixed-width: 120px;
+		}
+
+		paper-icon-button {
+			flex-shrink: 0;
+			height: 44px;
+			width: 44px;
+			padding: 6px;
+		}
+
+		.row-container {
+			@apply(--layout-horizontal);
+			@apply(--layout-center);
+			@apply(--layout-wrap);
+		}
+
+		section {
+			@apply(--layout-vertical);
+			margin: 0 10px;
+		}
+		section:not(:last-child) {
+			border-bottom: 2px solid var(--ibm-gray-60);
+		}
+		.section-header {
+			@apply(--layout-horizontal);
+			@apply(--layout-center);
+			padding: 10px 0;
+		}
+		.section-header-links-container {
+			@apply(--layout-flex);
+			@apply(--layout-horizontal);
+			@apply(--layout-baseline);
+			@apply(--layout-wrap);
+		}
+		.section-header-links-container > * {
+			padding-left: 10px;
+		}
+		.section-title-container {
+			@apply(--layout-flex);
+			@apply(--layout-horizontal);
+			@apply(--layout-baseline);
+			@apply(--layout-wrap);
+		}
+		.section-title {
+			font-weight: 500;
+			font-size: 22px;
+			line-height: 44px;
+		}
+		
+		.select-amenities-link {
+			@apply(--layout-flex);
+		}
+
+		.sub-section:not(:first-child) {
+			padding-top: 12px;
+		}
+		.sub-section:not(:last-child) {
+			border-bottom: 1px solid var(--tri-primary-content-accent-color);
+			padding-bottom: 12px;
+		}
+
+		paper-dropdown-menu {
+			--paper-dropdown-menu-ripple: {
+				display: none;
+			};
+		}
+
+		.layout-dropdown {
+			display: block;
+			@apply(--layout-flex);
+		}
+
+	</style>
+
+	<template>
+
+		<!-- <tricore-url raw-url="/getCompanyFile.jsp?fileLoc=" bind-url="{{imgUrl}}"></tricore-url> -->
+
+		<tri-loading-indicator show="[[_pageLoading]]"></tri-loading-indicator>
+
+		<triplat-ds id="reservationManager" name="reservationManager" data="{{reservationManager}}" loading="{{reservationManagerLoading}}">
+			<!-- <triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"> -->
+			<triplat-ds-context name="myReservationManagers" context-id="[[specId]]">
+			</triplat-ds-context>
+		</triplat-ds>
+
+		<triplat-ds id="layoutTypes" name="layoutTypes" filtered-data="{{layoutTypes}}" loading="{{layoutTypesLoading}}">
+			<triplat-query>
+				<triplat-query-filter name="parentListValueId" operator="equals" value="{{reservationManager.searchRoomType.id}}"></triplat-query-filter>
+			</triplat-query>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-room-criteria.layoutTypes" value="{{layoutTypes}}"></triplat-debug> -->
+
+		<triplat-ds id="lookupCity" name="lookupCity" data="{{_allCities}}" loading="{{lookupCityLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]">
+			</triplat-ds-context>
+			<triplat-query>
+				<triplat-query-scroll-page scroller="{{_cityInputScroller}}" size="20"></triplat-query-scroll-page>
+				<triplat-query-filter name="city" operator="contains" value="{{_citySearchValue}}" ignore-if-blank></triplat-query-filter>
+			</triplat-query>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-room-criteria._allCities" value="{{_allCities}}"></triplat-debug> -->
+		<!-- <triplat-debug message="tripage-room-criteria.selectedCity" value="{{selectedCity}}"></triplat-debug> -->
+
+		<triplat-ds id="lookupProperty" name="lookupProperty" data="{{_allProperties}}" loading="{{lookupPropertyLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]">
+			</triplat-ds-context>
+			<triplat-query>
+				<triplat-query-scroll-page scroller="{{_propertyInputScroller}}" size="20"></triplat-query-scroll-page>
+				<triplat-query-filter name="city" operator="equals" value="{{selectedCity.value}}" ignore-if-blank></triplat-query-filter>
+				<triplat-query-and></triplat-query-and>
+				<triplat-query-filter name="property" operator="contains" value="{{_propertySearchValue}}" ignore-if-blank></triplat-query-filter>
+			</triplat-query>
+		</triplat-ds>
+		<!-- <triplat-debug message="_allProperties" value="{{_allProperties}}"></triplat-debug> -->
+		<!-- <triplat-debug message="tripage-room-criteria.selectedProperty" value="{{selectedProperty}}"></triplat-debug> -->
+
+		<triplat-ds id="lookupBuilding" name="lookupBuilding" data="{{_allBuildings}}" loading="{{lookupBuildingLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]">
+			</triplat-ds-context>
+			<triplat-query>
+				<triplat-query-scroll-page scroller="{{_buildingInputScroller}}" size="20"></triplat-query-scroll-page>
+				<triplat-query-filter name="city" operator="equals" value="{{selectedCity.value}}" ignore-if-blank></triplat-query-filter>
+				<triplat-query-and></triplat-query-and>
+				<triplat-query-filter name="property" operator="equals" value="{{selectedProperty.value}}" ignore-if-blank></triplat-query-filter>
+				<triplat-query-and></triplat-query-and>
+				<triplat-query-filter name="building" operator="contains" value="{{_buildingSearchValue}}" ignore-if-blank></triplat-query-filter>
+			</triplat-query>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-room-criteria._allBuildings" value="{{_allBuildings}}"></triplat-debug> -->
+		<!-- <triplat-debug message="tripage-room-criteria.selectedBuilding" value="{{selectedBuilding}}"></triplat-debug> -->
+
+		<triplat-ds id="reservationLocation" name="reservationLocations" data="{{_reservationLocation}}" loading="{{reservationLocationsLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"></triplat-ds-context>
+			<triplat-ds-instance instance-id="[[resourceId]]"></triplat-ds-instance>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-exceptions.reservationLocation" value="{{_reservationLocation}}"></triplat-debug> -->
+
+		<triplat-ds id="exceptionOccurrences" name="exceptionOccurrences" filtered-data="{{exceptionOccurrences}}" loading="{{exceptionOccurrencesLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"></triplat-ds-context>
+			<triplat-query>
+				<triplat-query-filter name="resourceId" operator="equals" value="[[resourceId]]"></triplat-query-filter>
+			</triplat-query>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-exceptions.exceptionOccurrences" value="{{exceptionOccurrences}}"></triplat-debug> -->
+
+		<triplat-ds id="currentUser" name="currentUser" data="{{currentUser}}"></triplat-ds>
+		<!-- <triplat-debug message="tripage-exceptions.currentUser" value="{{currentUser}}"></triplat-debug> -->
+
+		<tricomp-page-header page-title="[[_reservationLocation.room.value]]"></tricomp-page-header>
+
+		<div class="page-main" hidden$="[[!exceptionOccurrences.length]]">
+			<div class="page-wrap">
+		
+				<tricomp-alert-message danger icon="ibm:clock-time" id="holdTimeMessage" class="hold-time-message" show$="[[_reservationLocation.holdTimeDeadline]]" show-tooltip-indicator-icon>
+					<span hidden$="[[holdTimeExpired]]">Hold expires in</span>
+					<triplat-countdown class="hold-time-countdown"
+						name="booking-expiration"
+						deadline="[[_reservationLocation.holdTimeDeadline]]"
+						expired-text="Hold time is expired."
+						timezone="[[currentUser._TimeZoneId]]"
+						is-expired="{{holdTimeExpired}}">
+					</triplat-countdown>
+				</tricomp-alert-message>
+				<paper-tooltip for="holdTimeMessage" position="bottom" offset="5" animation-delay="100" fit-to-visible-bounds>When the hold time on this room expires, all added food and equipment are not saved, and the room is removed for this reservation.</paper-tooltip>
+
+				<section>
+					<div class="section-header">
+						<div class="section-title-container">
+							<div class="section-title">Search Criteria</div>
+						</div>
+						<paper-icon-button primary icon="[[_computeDropdownIcon(_searchCriteriaCollapseOpened)]]" on-tap="_toggleSearchCriteriaCollapse"></paper-icon-button>
+					</div>
+
+					<iron-collapse id="searchCriteriaCollapse" opened="{{_searchCriteriaCollapseOpened}}">
+						<div class="sub-section">
+							<tricomp-incremental-number-input
+								class="attendees-input"
+								float-label
+								invalid="{{attendeesInvalid}}"
+								label="Attendees"
+								min="1"
+								max="9999"
+								value="{{reservationManager.searchCapacity}}">
+							</tricomp-incremental-number-input>
+
+							<paper-dropdown-menu class="layout-dropdown" label="Layout" no-animations on-tap="_jumpTo" always-float-label>
+								<paper-listbox id="layoutTypesListBox" class="dropdown-content" on-iron-select="_handleRoomLayoutSelected">
+									<template id="layoutTypesTemplate" is="dom-repeat" items="[[layoutTypes]]">
+										<paper-item>[[item.value]]</paper-item>
+									</template>
+								</paper-listbox>
+							</paper-dropdown-menu>	
+						</div>
+
+						<div class="sub-section">
+							<triplat-select-input
+								id="city"
+								label="City"
+								value="{{selectedCity}}"
+								value-name="city"
+								select-src="[[_allCities]]"
+								search-value="{{_citySearchValue}}"
+								scroller="{{_cityInputScroller}}"
+								on-tap="_jumpTo">
+							</triplat-select-input>
+
+							<triplat-select-input
+								id="property"
+								label="Site/Campus"
+								value="{{selectedProperty}}"
+								value-name="property"
+								select-src="[[_allProperties]]"
+								search-value="{{_propertySearchValue}}"
+								scroller="{{_propertyInputScroller}}"
+								on-tap="_jumpTo">
+							</triplat-select-input>
+
+							<triplat-select-input
+								id="building"
+								label="Building"
+								value="{{selectedBuilding}}"
+								value-name="building"
+								select-src="[[_allBuildings]]"
+								search-value="{{_buildingSearchValue}}"
+								scroller="{{_buildingInputScroller}}"
+								on-tap="_jumpTo">
+							</triplat-select-input>					
+						</div>
+
+						<div class="sub-section">
+							<iron-label class="field-container">
+								<span class="field-label">Amenities</span>
+								<div class="row-container" iron-label-target>
+									<tricomp-amenities-list class="amenities-list" hidden$="[[_noAmenitiesSelected]]"
+											catering="[[reservationManager.isCateringAvailable]]"
+											disabled-access="[[reservationManager.isADAAvailable]]"
+											network-connection="[[reservationManager.isNetworkConnection]]"
+											phone-conference="[[reservationManager.isConferencePhone]]"
+											projector="[[reservationManager.isProjector]]"
+											video-conference="[[reservationManager.isVideoConference]]"
+											whiteboard="[[reservationManager.isWhiteboard]]">
+									</tricomp-amenities-list>
+									<span class="link select-amenities-link" hidden$="[[!_noAmenitiesSelected]]" on-tap="_handleNavigateAmenities">Select amenities</span>
+									<span class="link" hidden$="[[_noAmenitiesSelected]]" on-tap="_handleNavigateAmenities">Select more</span>
+									<paper-icon-button primary icon="hardware:keyboard-arrow-right" on-tap="_handleNavigateAmenities"></paper-icon-button>
+								</div>
+							</iron-label>
+						</div>
+					</iron-collapse>
+				</section>
+
+				<section>
+					<div class="section-header">
+						<div class="section-title-container">
+							<div class="section-title">Schedule</div>
+							<div class="section-header-links-container">
+								<div class="link" on-tap="_handleAutoAssignAll">Auto-assign All</div>
+								<div class="link" on-tap="_handleClearAllAssignments">Clear All Assignments</div>
+							</div>
+						</div>
+					</div>
+
+					<triblock-table class="exceptions-table" data="{{exceptionOccurrences}}" disable-row-hover-styling>
+						<triblock-table-column class="exceptions-table-date-column" title="Scheduled Date">
+							<template>
+								<!-- <triplat-date-picker hidden$="[[!item.exceptionDateTime]]" value="[[item.exceptionDateTime]]" display-format="[[currentUser._DateFormat]]" readonly></triplat-date-picker> -->
+								<div hidden$="[[!item.exceptionDateTime]]">[[item.formattedDate]]</div>
+							</template>
+						</triblock-table-column>
+						<triblock-table-column title="Booked Room">
+							<template>
+								<div hidden$="[[!item.alternateResource]]">[[item.alternateResource]]</div>
+								<div hidden$="[[item.alternateResource]]" class="link auto-assign-label-container"><iron-icon icon="ibm:warning" class="auto-assign-icon"></iron-icon><span class="" on-tap="_handleAutoAssign">Auto-assign</span></div>
+							</template>
+						</triblock-table-column>
+						<triblock-table-column class="exceptions-table-action-buttons-column" merge-with-previous-column>
+							<template>
+								<paper-icon-button danger hidden$="[[!item.alternateResourceRecordId]]" icon="ibm:remove-delete" on-tap="_handleClearAssignment">Delete</paper-icon-button>
+								<paper-icon-button primary hidden$="[[item.alternateResourceRecordId]]" icon="ibm:search" on-tap="_handleSearch">Search</paper-icon-button>
+							</template>
+						</triblock-table-column>
+					</triblock-table>
+				</section>
+
+			</div>
+		</div>
+
+		<template is="dom-if" if="[[!exceptionOccurrences.length]]">
+			<div class="page-main empty-data-message">
+				<span hidden$="[[_pageLoading]]">This room reservation does not have any exceptions.</span>
+			</div>
+		</template>
+
+		<tricomp-page-toolbar>
+			<tricomp-page-toolbar-button label="Done" icon="ibm:success-confirmation" on-tap="_handleDoneTap"></tricomp-page-toolbar-button>
+		</tricomp-page-toolbar>
+
+	</template>
+</dom-module>
+<script>
+	Polymer({
+
+		is: "tripage-exceptions",
+		behaviors: [RoomReservationBehavior, RoomReservationPageBehavior, TriDateUtilities],
+
+		properties: {
+			defaultCallMethod: {
+				type: String,
+				value: "Workflow"
+			},
+
+			_noAmenitiesSelected: {
+				type: Boolean,
+				computed: "_computeNoAmenitiesSelected(reservationManager.isCateringAvailable, reservationManager.isADAAvailable, reservationManager.isNetworkConnection, reservationManager.isProjector, reservationManager.isConferencePhone, reservationManager.isVideoConference, reservationManager.isWhiteboard)"
+			},
+
+			resourceId: {
+				type: String,
+				value: "-1"
+			},
+
+			_searchCriteriaCollapseOpened: {
+				type: Boolean,
+				value: false
+			},
+
+			/*_searchCriteriaInvalid: {
+				type: Boolean,
+				computed: "_computeSearchCriteriaInvalid(attendeesInvalid, reservationManager.searchRoomLayout)"
+			},*/
+
+			selectedCity: {
+				type: Object,
+				value: {
+					id: null,
+					value: null,
+				},
+				observer: "_handleSelectedCityChange"
+			},
+
+			selectedProperty: {
+				type: Object,
+				value: {
+					id: null,
+					value: null
+				},
+				observer: "_handleSelectedPropertyChange"
+			},
+
+			selectedBuilding: {
+				type: Object,
+				value: {
+					id: null,
+					value: null
+				},
+				observer: "_handleSelectedBuildingChange"
+			},
+			
+			_pageLoading: {
+				type: Boolean,
+				computed: "_isBusy(isBusy, reservationLocationsLoading, exceptionOccurrencesLoading, layoutTypesLoading, lookupCityLoading, lookupPropertyLoading, lookupBuildingLoading, reservationManagerLoading)"
+			},
+		},
+
+		listeners: {
+		},
+
+		observers: [
+			"_handleCityChange(reservationManager.searchCity.id)",
+			"_handlePropertyChange(reservationManager.searchProperty.id)",
+			"_handleBuildingChange(reservationManager.searchBuilding.id)",
+			"_handleExceptionOccurrencesChanged(exceptionOccurrences)"
+		],
+
+		_jumpTo: function(e) {
+			e.target.scrollIntoView();
+		},
+
+		_handleRoomLayoutSelected: function(e) {
+			var selectedRoomLayout = this.$.layoutTypesTemplate.itemForElement(e.detail.item);
+			this.set('reservationManager.searchRoomLayout', { id: selectedRoomLayout._id, value: selectedRoomLayout.value });
+		},
+
+		_handleExceptionOccurrencesChanged: function(exceptionOccurrences) {
+			if (exceptionOccurrences && exceptionOccurrences.length > 0) {
+				for (var i = 0; i < exceptionOccurrences.length; i++) {
+					var item = exceptionOccurrences[i];
+					var formattedDate = moment.tz(item.exceptionDateTime, this.currentUser._TimeZoneId).formatWithJDF(this.currentUser._DateFormat);
+					item['formattedDate'] = formattedDate;
+				}
+			}
+		},
+
+		_computeDropdownIcon: function(opened) {
+			return (opened) ? "hardware:keyboard-arrow-up" : "hardware:keyboard-arrow-down";
+		},
+
+		_computeNoAmenitiesSelected: function(isCateringAvailable, isADAAvailable, isNetworkConnection, isProjector, isConferencePhone, isVideoConference, isWhiteboard) {
+			return !isCateringAvailable && !isADAAvailable && !isNetworkConnection && !isProjector && !isConferencePhone && !isVideoConference && !isWhiteboard;
+		},
+
+		/*_computeSearchCriteriaInvalid: function(attendeesInvalid, searchRoomLayout) {
+			if (attendeesInvalid) return true;
+			if (!searchRoomLayout || searchRoomLayout == "") return true;
+			return false;
+		},*/
+
+		_toggleSearchCriteriaCollapse: function() {
+			this.$.searchCriteriaCollapse.toggle();
+		},
+
+		
+
+		_handleCityChange: function(value, oldValue) {
+			// console.log("tripage-room-criteria._handleCityChange");
+			// console.log(value);
+			// console.log(oldValue);
+
+			// console.log(this.reservationManager.searchCity);
+
+			if (value && value > 0) {
+				this.set("selectedCity", this.reservationManager.searchCity);
+			} else if (!value || value == undefined) {
+				this.set("selectedCity", {id: null, value: null});
+			}
+		},
+
+		_handleSelectedCityChange: function(value, oldValue) {
+			// console.log("tripage-room-criteria._handleSelectedCityChange");
+
+			if (!this._isPageActive)
+				return;
+
+			if (!this.reservationManager) {
+				// console.log(" * exiting early because reservationManager does not exist");
+				return;
+			}
+
+			// console.log(value);
+			// console.log(oldValue);
+			// console.log(this.reservationManager.searchCity);
+
+			if (value) {
+				if (this.reservationManager.searchCity) {
+					if (value.id != this.reservationManager.searchCity.id) {
+						this._onChangeCity(value);
+					}
+				} else {
+					this._onChangeCity(value);
+				}
+			} else {
+				this._onChangeCity(null);
+			}
+		},
+
+		_onChangeCity: function(value) {
+			// console.log("triggering onChangeCity workflow...");
+
+			// this._setBusy();
+
+			this.reservationManager.searchCity = value;
+
+			this._onChangeCityImpl().then(function() {
+				// this.$.reservationManager.refresh().then(function() {
+					// this.$.lookupProperty.refresh().then(function() {
+						// this.$.lookupBuilding.refresh().then(function() {
+							// this.$.lookupRoom.refresh().then(function() {
+								// this._clearBusy();
+							// }.bind(this));
+						// }.bind(this));
+					// }.bind(this));
+				// }.bind(this));
+			}.bind(this));
+		},
+
+		_onChangeCityImpl: function() {
+			var method = this.defaultCallMethod;
+			if (method === "Workflow") {
+				return new Promise(function(resolve, reject) {
+					// console.log("using Worlflow call method");
+					resolve(this._onChangeCityWorkflow());
+				}.bind(this));
+			} else {
+				return new Promise(function(resolve, reject) {
+					// console.log("using Native call method");
+					resolve(this._onChangeCityNative());
+				}.bind(this));
+			}
+		},
+
+		_onChangeCityNative: function() {
+			this.reservationManager.searchProperty = {id: null, value: null};
+			this.reservationManager.searchBuilding = {id: null, value: null};
+			this.reservationManager.searchFloor = {id: null, value: null};
+			this.reservationManager.searchRoom = "";
+
+			return this.$.reservationManager.updateRecord(TriPlatDs.RefreshType.SERVER);
+		},
+
+		_onChangeCityWorkflow: function() {
+			return this.$.reservationManager.updateRecord(TriPlatDs.RefreshType.SERVER, "actions", "onChangeCity");
+		},
+
+		_handlePropertyChange: function(value, oldValue) {
+			// console.log("tripage-room-criteria._handlePropertyChange");
+			// console.log(value);
+			// console.log(oldValue);
+
+			// console.log(this.reservationManager.searchProperty);
+
+			// if (this._isPageActive) {
+				if (value && value > 0) {
+					this.set("selectedProperty", this.reservationManager.searchProperty);
+				} else if (!value || value == undefined) {
+					this.set("selectedProperty", {id: null, value: null});
+				}
+			// }
+		},
+
+		_handleSelectedPropertyChange: function(value, oldValue) {
+			// console.log("tripage-room-criteria._handleSelectedPropertyChange");
+
+			if (!this._isPageActive)
+				return;
+
+			if (!this.reservationManager) {
+				// console.log(" * exiting early because reservationManager does not exist");
+				return;
+			}
+
+			// console.log(value);
+			// console.log(oldValue);
+			// console.log(this.reservationManager.searchProperty);
+
+			if (value) {
+				if (this.reservationManager.searchProperty) {
+					if (value.id != this.reservationManager.searchProperty.id) {
+						this._onChangeProperty(value);
+					}
+				} else {
+					this._onChangeProperty(value);
+				}
+			} else {
+				this._onChangeProperty(null);
+			}
+		},
+
+		_onChangeProperty: function(value) {
+			// console.log("triggering onChangeProperty workflow...");
+
+			// this._setBusy();
+
+			this.reservationManager.searchProperty = value;
+
+			this._onChangePropertyImpl().then(function() {
+				// this.$.reservationManager.refresh().then(function() {
+					// this.$.lookupBuilding.refresh().then(function() {
+						// this.$.lookupRoom.refresh().then(function() {
+							// this._clearBusy();
+						// }.bind(this));
+					// }.bind(this));
+				// }.bind(this));
+			}.bind(this));
+		},
+
+		_onChangePropertyImpl: function() {
+			var method = this.defaultCallMethod;
+			if (method === "Workflow") {
+				return new Promise(function(resolve, reject) {
+					// console.log("using Worlflow call method");
+					resolve(this._onChangePropertyWorkflow());
+				}.bind(this));
+			} else {
+				return new Promise(function(resolve, reject) {
+					// console.log("using Native call method");
+					resolve(this._onChangePropertyNative());
+				}.bind(this));
+			}
+		},
+
+		_onChangePropertyNative: function() {
+			this.reservationManager.searchBuilding = {id: null, value: null};
+			this.reservationManager.searchFloor = {id: null, value: null};
+			this.reservationManager.searchRoom = "";
+
+			return this.$.reservationManager.updateRecord(TriPlatDs.RefreshType.SERVER);
+		},
+
+		_onChangePropertyWorkflow: function() {
+			return this.$.reservationManager.updateRecord(TriPlatDs.RefreshType.SERVER, "actions", "onChangeProperty");
+		},
+
+		_handleBuildingChange: function(value, oldValue) {
+			// console.log("tripage-room-criteria._handleBuildingChange");
+			// console.log(value);
+			// console.log(oldValue);
+
+			// console.log(reservationManager.searchBuilding);
+
+			// if (!this._isPageActive)
+			// 	return;
+
+			// if (!this.reservationManager) {
+			// 	// console.log(" * exiting early because reservationManager does not exist");
+			// 	return;
+			// }
+
+			// if (this._isPageActive) {
+				if (value) {
+					this.set("selectedBuilding", this.reservationManager.searchBuilding);
+				} else {
+					this.set("selectedBuilding", {id: null, value: null});
+				}
+			// }
+		},
+
+		_handleSelectedBuildingChange: function(value, oldValue) {
+			// console.log("tripage-room-criteria._handleSelectedBuildingChange");
+
+			if (!this._isPageActive)
+				return;
+
+			if (!this.reservationManager) {
+				// console.log(" * exiting early because reservationManager does not exist");
+				return;
+			}
+
+			// console.log(value);
+			// console.log(oldValue);
+			// console.log(this.reservationManager.searchBuilding);
+
+			if (value) {
+				if (this.reservationManager.searchBuilding) {
+					if (value.id != this.reservationManager.searchBuilding.id) {
+						this._onChangeBuilding(value);
+					}
+				} else {
+					this._onChangeBuilding(value);
+				}
+			} else {
+				this._onChangeBuilding(null);
+			}
+
+			// if (value && value.id > 0 &&
+			// 	(!oldValue || (oldValue && value.id != oldValue.id))) {
+
+			// 	if (this.reservationManager.searchBuilding &&
+			// 		value.id != this.reservationManager.searchBuilding.id) {
+			// 		this._onChangeBuilding(value);
+			// 	}
+			// } else if (!value) {
+			// 	this._onChangeBuilding(value);
+			// }
+		},
+
+		_onChangeBuilding: function(value) {
+			// console.log("triggering onChangeBuilding workflow...");
+
+			// this._setBusy();
+
+			this.reservationManager.searchBuilding = value;
+
+			this._onChangeBuildingImpl().then(function() {
+				// this.$.reservationManager.refresh().then(function() {
+					// this.$.lookupRoom.refresh().then(function() {
+						// this._clearBusy();
+					// }.bind(this));
+				// }.bind(this));
+			}.bind(this));
+		},
+
+		_onChangeBuildingImpl: function() {
+			var method = this.defaultCallMethod;
+			if (method === "Workflow") {
+				return new Promise(function(resolve, reject) {
+					// console.log("using Worlflow call method");
+					resolve(this._onChangeBuildingWorkflow());
+				}.bind(this));
+			} else {
+				return new Promise(function(resolve, reject) {
+					// console.log("using Native call method");
+					resolve(this._onChangeBuildingNative());
+				}.bind(this));
+			}
+		},
+
+		_onChangeBuildingNative: function() {
+			this.reservationManager.searchFloor = {id: null, value: null};
+			this.reservationManager.searchRoom = "";
+
+			return this.$.reservationManager.updateRecord(TriPlatDs.RefreshType.SERVER);
+		},
+
+		_onChangeBuildingWorkflow: function() {
+			return this.$.reservationManager.updateRecord(TriPlatDs.RefreshType.SERVER, "actions", "onChangeBuilding");
+		},
+
+		_handleClearAssignment: function(e) {
+			var item = e.model.item;
+			if (item) {
+				var occurrenceId = item._id;
+
+				this.fire("action-exception-clear-assignment", {'occurrenceId': occurrenceId});
+			}
+		},
+
+		_handleClearAllAssignments: function(e) {
+			this.fire("action-exception-clear-assignment-all");
+		},
+
+		_handleSearch: function(e) {
+			var item = e.model.item;
+			if (item) {
+				this._setBusy();
+
+				var occurrenceId = item._id;
+				var occurrenceDate = item.exceptionDateTime;
+
+				var wfParams = {};
+				wfParams.occurrence = occurrenceId;
+
+				this.$.reservationManager.updateRecord(TriPlatDs.RefreshType.SERVER, "actions", "exceptionSearch", wfParams).then(function() {
+					this._clearBusy();
+
+					this.fire("navigate-room-results", {'backEventName': "navigate-exceptions", 'occurrenceId': occurrenceId, 'occurrenceDate': occurrenceDate});
+				}.bind(this));
+			}
+		},
+
+		_handleAutoAssign: function(e) {
+			var item = e.model.item;
+			if (item) {
+				var occurrenceId = item._id;
+
+				this.fire("action-exception-auto-assign", {'occurrenceId': occurrenceId});
+			}
+		},
+
+		_handleAutoAssignAll: function(e) {
+			this.fire("action-exception-auto-assign-all");
+		},
+
+		_handleDoneTap: function(e) {
+			this.fire("navigate-summary-page-back");
+		},
+
+		_handleBackTap: function(e) {
+			this.fire("navigate-summary-page-back");
+		},
+
+		_handleNavigateAmenities: function(e) {
+			this.fire("navigate-criteria-amenities", {"backEventName": "navigate-exceptions-back"});
+		},
+
+		// override
+		_isBusy: function(isBusy, reservationLocationsLoading, exceptionOccurrencesLoading, layoutTypesLoading, lookupCityLoading, lookupPropertyLoading, lookupBuildingLoading, reservationManagerLoading) {
+			return isBusy || reservationLocationsLoading || exceptionOccurrencesLoading || layoutTypesLoading || lookupCityLoading || lookupPropertyLoading || lookupBuildingLoading || reservationManagerLoading;
+		},
+
+		_setOccurrenceSeriesContext: function(rmObj, occurrenceId) {
+			return new Promise(function(resolve) {
+				var wfParams = {};
+				wfParams.occurrence = occurrenceId;
+
+				rmObj.updateRecord(this.reservationManager._id, TriPlatDs.RefreshType.SERVER, "actions", "setOccurrenceSeriesContext", wfParams).then(function() {
+					resolve();
+				}.bind(this));
+			}.bind(this));
+		},
+
+		// override
+		_pageAttached : function() {
+			// console.log("tripage-exceptions._pageAttached");
+
+			if (!this._isPageActive)
+				return;
+
+			this._setOccurrenceSeriesContext(this.$.reservationManager).then(function() {}.bind(this));
+			this._setRoomLayoutFromRM();
+		},	
+
+		_setRoomLayoutFromRM: function() {
+			var id = this.reservationManager.searchRoomLayout.id;
+			var selected = this.$.layoutTypesTemplate.items.filter(function(item) {
+				return item._id == id;
+			})[0];
+			var index = this.$.layoutTypesTemplate.items.indexOf(selected);
+			this.$.layoutTypesListBox.select(index);
+		}	
+	});
+</script>

@@ -1,0 +1,363 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<link rel="import" href="../triplat-debug/triplat-debug.html">
+
+<dom-module id="triplat-countdown">
+
+	<style>
+		:host {
+			/*display: block;*/
+			@apply(--layout-vertical);
+			@apply(--layout-center-center);
+		}
+
+		.container {
+			@apply(--layout-horizontal);
+			@apply(--layout-wrap);
+			text-align: center;
+
+			@apply(--countdown-container);
+		}
+
+		.countdown {
+			@apply(--countdown);
+		}
+
+		.countdown-days {
+			@apply(--countdown-days);
+		}
+
+		.countdown-hours {
+			@apply(--countdown-hours);
+		}
+
+		.countdown-minutes {
+			@apply(--countdown-minutes);
+		}
+
+		.countdown-seconds {
+			@apply(--countdown-seconds);
+		}
+
+		.expired {
+			@apply(--countdown-expired);
+		}
+
+		.expired-text {
+			@apply(--countdown-expired-text);
+		}
+
+	</style>
+
+	<template>
+		<div class="container" hidden$="[[!deadline]]">
+			<div class="countdown" hidden$="[[!_computeShowCountdown(isExpired, countdown.total)]]">
+				<span hidden$="[[!label]]">[[label]]</span> <span class="countdown-days" hidden$="[[!_showDays]]">[[countdown.daysText]]:</span><span class="countdown-hours" hidden$="[[!_showHours]]">[[countdown.hoursText]]:</span><span class="countdown-minutes" hidden$="[[!_showMinutes]]">[[countdown.minutesText]]:</span><span class="countdown-seconds" hidden$="[[!_showSeconds]]">[[countdown.secondsText]]</span>
+			</div>
+
+			<div class="expired" hidden$="[[!_computeShowExpired(isExpired, countdown.total)]]">
+				<span class="expired-text">[[expiredText]]</span>
+			</div>
+		</div>
+	</template>
+
+</dom-module>
+<script>
+	Polymer({
+
+		is: "triplat-countdown",
+
+		properties: {
+
+			loggingEnabled: {
+				type: Boolean,
+				value: false
+			},
+
+			disabled: {
+				type: Boolean,
+				value: false
+			},
+
+			waiting: {
+				type: Boolean,
+				value: false
+			},
+
+			name: {
+				type: String,
+				value: null
+			},
+
+			deadline: {
+				type: Date,
+			},
+
+			interval: {
+				type: Number,
+				value: 1000
+			},
+
+			timezone:  {
+				type: String,
+			},
+
+			waitUntil: {
+				type: Date,
+				value: null
+			},
+
+			countdown: {
+				type: Object,
+				notify: true,
+				value: {
+					'name': '',
+					'total': -1,
+					'days': 0,
+					'daysText': "0",
+					'hours': 0,
+					'hoursText': "00",
+					'minutes': 0,
+					'minutesText': "00",
+					'seconds': 0,
+					'secondsText': "00",},
+			},
+
+			isExpired: {
+				type: Boolean,
+				notify: true,
+				computed: "_computeIsExpired(deadline, countdown, disabled)"
+			},
+
+			expiredText: {
+				type: String,
+				value: "Expired!",
+			},
+
+			_showDays: {
+				type: Boolean,
+				value: false
+			},
+
+			_showHours: {
+				type: Boolean,
+				value: true
+			},
+
+			_showMinutes: {
+				type: Boolean,
+				value: true
+			},
+
+			_showSeconds: {
+				type: Boolean,
+				value: true
+			},
+
+			_waitHandle: Object,
+
+			label: String
+		},
+
+		listeners: {
+		},
+
+		observers: [
+			"_initCountdown(deadline, timezone, disabled, waiting)",
+		],
+
+		_computeShowCountdown: function(isExpired) {
+			// console.log("triplat-countdown._computeShowCountdown" + (this.name ? " [" + this.name + "]" : "") );
+			// console.log(isExpired);
+
+			if (isExpired == undefined)
+				return false;
+
+			return !isExpired;
+		},
+
+		_computeShowExpired: function(isExpired) {
+			// console.log("triplat-countdown._computeShowExpired" + (this.name ? " [" + this.name + "]" : "") );
+			// console.log(isExpired);
+
+			if (isExpired == undefined)
+				return false;
+
+			return isExpired;
+		},
+
+		_computeIsExpired: function(deadline, countdown, disabled) {
+			// console.log("triplat-countdown._computeIsExpired" + (this.name ? " [" + this.name + "]" : "") );
+			// console.log(deadline);
+			// console.log(countdown);
+
+			if (countdown.total == -1)
+				return undefined;
+
+			var isExpired = !disabled && deadline && countdown && countdown.total < 1;
+			// console.log("isExpired", isExpired);
+
+			if (isExpired) {
+				this.logInfo("countdown" + (this.name ? " [" + this.name + "]" : "") + " has expired");
+			}
+
+			return isExpired;
+		},
+
+		_initCountdown: function(deadline, timezone, disabled, waiting) {
+			// console.log("triplat-countdown._initCountdown" + (this.name ? " [" + this.name + "]" : "") );
+			// console.log(deadline);
+			// console.log(timezone);
+
+			if ((!disabled || !waiting) && deadline && timezone) {
+				this._countdown();
+			}
+		},
+
+		_countdownWaitWakeUp: function() {
+			// console.log("triplat-countdown._countdownWaitWakeUp" + (this.name ? " [" + this.name + "]" : "") );
+			// this._cancelWait();
+
+			this.logInfo("countdown" + (this.name ? " [" + this.name + "]" : "") + " waking up");
+
+			// this should trigger the _initCountdown based on bindings
+			this.async(function() {
+				this.set("waiting", false);
+			});
+		},
+
+		_cancelWait: function() {
+			var waitHandle = this._waitHandle;
+			if (waitHandle) {
+				// console.log("Cancelling wait: ", waitHandle);
+
+				this.cancelAsync(waitHandle);
+			}
+		},
+
+		_countdown: function() {
+			// console.log("triplat-countdown._countdown" + (this.name ? " [" + this.name + "]" : "") );
+
+			var disabled = this.disabled;
+			if (disabled) {
+				this.logInfo("countdown" + (this.name ? " [" + this.name + "]" : "") + " is disabled");
+				return;
+			}
+
+			var deadline = this.deadline;
+			var timezone = this.timezone;
+			var waitUntil = this.waitUntil;
+
+			if (this.waiting) {
+				this.logInfo("countdown" + (this.name ? " [" + this.name + "]" : "") + " is waiting");
+				return;
+			}
+
+			// console.log(deadline);
+			// console.log(timezone);
+
+			if (deadline) {
+				var deadlineMS = Date.parse(deadline);
+
+				// var now = this.getCurrentDatetime(timezone);
+				// console.log(now);
+
+				// var nowDT = Date.parse(now);
+				var nowDT = new Date();
+				var nowMS = nowDT.getTime();
+
+				var waitUntilDT = waitUntil ? Date.parse(waitUntil) : null;
+				if (waitUntilDT && nowMS <= waitUntilDT) {
+					var waitPeriodMS = waitUntilDT-nowMS;
+					this.logInfo("countdown" + (this.name ? " [" + this.name + "]" : "") + " waiting for " + (waitPeriodMS / 1000) + " seconds");
+
+					var waitHandle = this.async(function() {
+						this._countdownWaitWakeUp();
+					}, waitPeriodMS);
+
+					this.set("_waitHandle", waitHandle);
+
+					this.waiting = true;
+
+					var countdown = this._getCountdown(deadlineMS, nowDT);
+					this.set("countdown", countdown);
+				} else {
+					// console.log("triplat-countdown._countdown" + (this.name ? " [" + this.name + "]" : "") );
+					var countdown = this._getCountdown(deadlineMS, nowDT);
+					if (countdown.total > 0) {
+						this.async(function() {
+							this._countdown();
+						}, this.interval);
+					} else {
+						this.logInfo("countdown" + (this.name ? " [" + this.name + "]" : "") + " has run out");
+
+						countdown = {
+							'name': this.name,
+							'total': 0,
+							'days': 0,
+							'daysText': "0",
+							'hours': 0,
+							'hoursText': "00",
+							'minutes': 0,
+							'minutesText': "00",
+							'seconds': 0,
+							'secondsText': "00",};
+					}
+
+					this.set("countdown", countdown);
+				}
+			} else {
+				this.logInfo("countdown" + (this.name ? " [" + this.name + "]" : "") + " deadline is not set");
+			}
+		},
+
+		_getCountdown: function(deadlineDT, nowDT) {
+			var remaining = deadlineDT - nowDT;
+			var seconds = Math.floor((remaining / 1000) % 60);
+			var minutes = Math.floor((remaining / 1000 / 60) % 60);
+			var hours = Math.floor((remaining / (1000 * 60 * 60)) % 24);
+			var days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+
+			this.set("_showDays", days > 0);
+			this.set("_showHours", days > 0 || hours > 0);
+			this.set("_showMinutes", days > 0 || hours > 0 || minutes > 0);
+			this.set("_showSeconds", days > 0 || hours > 0 || minutes > 0 || seconds > 0);
+
+			return {
+				'name': this.name,
+				'total': remaining,
+				'days': days,
+				'daysText': "" + days,
+				'hours': hours,
+				'hoursText': "" + (hours < 10 ? "0" : "") + hours,
+				'minutes': minutes,
+				'minutesText': "" + (minutes < 10 ? "0" : "") + minutes,
+				'seconds': seconds,
+				'secondsText': "" + (seconds < 10 ? "0" : "") + seconds
+			};
+		},
+
+		created: function() {
+			// console.log("triplat-countdown.created" + (this.name ? " [" + this.name + "]" : "") );
+		},
+
+		ready: function() {
+			// console.log("triplat-countdown.ready" + (this.name ? " [" + this.name + "]" : "") );
+		},
+
+		attached: function() {
+			// console.log("triplat-countdown.attached" + (this.name ? " [" + this.name + "]" : "") );
+		},
+
+		detached: function() {
+			// console.log("triplat-countdown.detached" + (this.name ? " [" + this.name + "]" : "") );
+			this._cancelWait();
+		},
+
+		logInfo: function(msg) {
+			if (this.loggingEnabled) {
+				console.log(msg);
+			}
+		}
+	});
+</script>

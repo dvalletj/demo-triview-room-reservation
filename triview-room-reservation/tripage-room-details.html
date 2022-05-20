@@ -1,0 +1,332 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2015-2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<link rel="import" href="../triplat-ds/triplat-ds.html">
+<link rel="import" href="../triplat-debug/triplat-debug.html">
+
+<link rel="import" href="../tricore-url/tricore-url.html">
+<link rel="import" href="../triplat-image/triplat-image.html">
+
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="../iron-image/iron-image.html">
+
+<link rel="import" href="../paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../paper-tooltip/paper-tooltip.html">
+
+<link rel="import" href="../triplat-loading-indicator/triplat-loading-indicator.html">
+
+<link rel="import" href="room-reservation-behavior.html">
+<link rel="import" href="room-reservation-page-behavior.html">
+<link rel="import" href="tricomp-alert-message.html">
+
+<dom-module id="tripage-room-details">
+
+	<link rel="import" type="css" href="shared.css">
+
+	<style>
+
+		:host {
+			@apply(--layout-vertical);
+		}
+
+		.approval-message {
+			font-size: 16px;
+			margin-top: 10px;
+		}
+
+		.hold-time-message {
+			margin-bottom: 10px;
+		}
+
+		.room-details-container {
+			@apply(--layout-vertical);
+			font-size: 14px;
+			line-height: 17px;
+			padding: 0px 10px 5px 10px;
+			flex-shrink: 0;
+
+			border-bottom: 1px solid var(--tri-primary-content-accent-color);
+		}
+
+			.room-name-container {
+				@apply(--layout-horizontal);
+				@apply(--layout-center);
+			}
+
+				.room-name {
+					padding-right: 10px;
+					font-size: 20px;
+					font-weight: 500;
+					@apply(--paper-font-common-nowrap);
+				}
+
+				.divider-line {
+					border-left: 1px solid var(--tri-primary-content-accent-color);
+					padding-left: 5px;
+					height: 24px;
+				}
+
+				.favorite-icon {
+					flex-shrink: 0;
+					padding: 6px;
+					height: 42px;
+					width: 42px;
+				}
+
+			.room-image-container {
+				padding: 20px 0px;
+			}
+
+				iron-image {
+					width: 100%;
+					--iron-image-width: 100%;
+				}
+
+
+			.tappable-rows-section {
+				padding-left: 10px;
+			}
+
+				.tappable-row {
+					@apply(--layout-horizontal);
+					@apply(--layout-center);
+					border-bottom: 1px solid var(--tri-primary-content-accent-color);
+					cursor: pointer;
+					height: 44px;
+				}
+
+				.row-content {
+					@apply(--layout-flex);
+				}
+
+		tricomp-amenities-list {
+			padding-top: 10px;
+		}
+
+	</style>
+
+	<template>
+
+		<tricore-url raw-url="/getCompanyFile.jsp?fileLoc=" bind-url="{{imgUrl}}"></tricore-url>
+
+		<!-- <triplat-debug message="tripage-room-details.params" value="{{params}}"></triplat-debug> -->
+
+		<triplat-loading-indicator show="[[_isBusy(isBusy, roomDetailsLoading, layoutOptionsLoading, favoriteRoomsLoading)]]"></triplat-loading-indicator>
+
+		<triplat-ds id="applicationSettings" name="applicationSettings" data="{{applicationSettings}}"></triplat-ds>
+
+		<triplat-ds id="roomDetails" name="lookupRoom" data="{{_roomDetails}}" loading="{{roomDetailsLoading}}">
+			<triplat-ds-instance instance-id="{{params.roomId}}"></triplat-ds-instance>
+			<!-- <triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"> -->
+			<triplat-ds-context name="myReservationManagers" context-id="[[specId]]">
+			</triplat-ds-context>
+		</triplat-ds>
+		<tricomp-array-comparator
+				source="{{_roomDetails}}"
+				compare-to="{{favoriteRooms}}"
+				match-flag="isFavorite"
+				update-source>
+		</tricomp-array-comparator>
+		<!-- <triplat-debug message="tripage-room-details._roomDetails" value="{{_roomDetails}}"></triplat-debug> -->
+
+		<triplat-ds id="layoutOptions" name="layoutOptions" data="{{layoutOptions}}" loading="{{layoutOptionsLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[specId]]">
+				<triplat-ds-context name="lookupRoom" context-id="{{_roomDetails._id}}">				
+				</triplat-ds-context>
+			</triplat-ds-context>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-room-details.layoutOptions" value="{{layoutOptions}}"></triplat-debug> -->
+
+		<triplat-ds id="currentUser" name="currentUser" data="{{currentUser}}"></triplat-ds>
+		<!-- <triplat-debug message="tripage-room-details.currentUser" value="[[currentUser]]"></triplat-debug> -->
+
+		<triplat-ds id="favoriteRooms" name="favoriteRooms" data="{{favoriteRooms}}" loading="{{favoriteRoomsLoading}}">
+			<triplat-ds-context name="currentUser" context-id="[[currentUser._id]]">
+			</triplat-ds-context>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-room-details.favoriteRooms" value="[[favoriteRooms]]"></triplat-debug> -->
+		
+		<triplat-ds id="reservationLocation" name="reservationLocations" data="{{_reservationLocation}}" loading="{{_reservationLocationsLoading}}" manual>
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"></triplat-ds-context>
+			<triplat-ds-instance instance-id="[[resourceId]]"></triplat-ds-instance>
+		</triplat-ds>
+
+		<tricomp-page-header page-title="Room Details" show-back-button on-back-tap="_handleBack"></tricomp-page-header>
+
+		<div class="page-main">
+			<div class="page-wrap">
+				<tricomp-alert-message danger icon="ibm:clock-time" id="holdTimeMessage" class="hold-time-message" show$="[[_reservationLocation.holdTimeDeadline]]" show-tooltip-indicator-icon>
+					<span hidden$="[[holdTimeExpired]]">Hold expires in</span>
+					<triplat-countdown class="hold-time-countdown"
+						name="booking-expiration"
+						deadline="[[_reservationLocation.holdTimeDeadline]]"
+						expired-text="Hold time is expired."
+						timezone="[[currentUser._TimeZoneId]]"
+						is-expired="{{holdTimeExpired}}">
+					</triplat-countdown>
+				</tricomp-alert-message>
+				<paper-tooltip for="holdTimeMessage" position="bottom" offset="5" animation-delay="100" fit-to-visible-bounds>When the hold time on this room expires, all added food and equipment are not saved, and the room is removed for this reservation.</paper-tooltip>
+
+				<div class="room-details-container">
+					<div class="room-name-container">
+						<span class="room-name">{{_roomDetails.room}}</span>
+						<span class="divider-line"></span>
+						<paper-icon-button class="favorite-icon" favorited$="[[_roomDetails.isFavorite]]" icon="[[_computeFavIcon(_roomDetails.isFavorite)]]" on-tap="_handleToggleFavorite"></paper-icon-button>
+					</div>
+					<div hidden$="[[!_roomDetails.building]]">[[_roomDetails.building]]</div>
+					<div hidden$="[[!_roomDetails.floor]]">[[_roomDetails.floor]]</div>
+					<div>
+						<span hidden$="[[!_roomDetails.city]]">[[_roomDetails.city]]</span>&nbsp;<span hidden$="[[!_roomDetails.state]]">|&nbsp;[[_roomDetails.state]]</span>&nbsp;<span hidden$="[[!_roomDetails.country]]">|&nbsp;[[_roomDetails.country]]</span>
+					</div>
+
+					<template is="dom-if" if="[[_showImage(applicationSettings)]]">
+						<div class="room-image-container" hidden$="[[!roomImageLoaded]]">
+							<iron-image class="room-image"
+								src="{{_computeImageUrl(_roomDetails.image, imgUrl)}}"
+								hidden$="[[!roomImageLoaded]]" 
+								loaded="{{roomImageLoaded}}">
+							</iron-image>
+						</div>
+					</template>
+
+					<div>Capacity [[_roomDetails.capacity]]</div>
+					<div>[[_roomDetails.layout]] layout</div>
+					<tricomp-amenities-list class="amenities-list"
+						catering="[[_isRoomServiceAvailable(_roomDetails.isCateringAvailable)]]"
+						disabled-access="[[_isRoomServiceAvailable(_roomDetails.isADAAvailable)]]"
+						network-connection="[[_isRoomServiceAvailable(_roomDetails.isNetworkConnection)]]"
+						phone-conference="[[_isRoomServiceAvailable(_roomDetails.isConferencePhone)]]"
+						projector="[[_isRoomServiceAvailable(_roomDetails.isProjector)]]"
+						video-conference="[[_isRoomServiceAvailable(_roomDetails.isVideoConference)]]"
+						whiteboard="[[_isRoomServiceAvailable(_roomDetails.isWhiteboard)]]">
+					</tricomp-amenities-list>
+
+					<tricomp-alert-message info id="approvalMessage" class="approval-message" hidden$="[[!_isApprovalRequired(_roomDetails.approvalName)]]" show-tooltip-indicator-icon>[[_roomDetails.approval]]</tricomp-alert-message>
+					<paper-tooltip for="approvalMessage" position="top" offset="5" animation-delay="100" fit-to-visible-bounds>Adding this room to your reservation will require approval from the room's owner, which may result in a delay of the acceptance of this room.  You will be notified of the room owner's decision.</paper-tooltip>
+				</div>
+
+				<div class="tappable-rows-section">
+					<div class="tappable-row" hidden$="[[!item.roomDetails.data.isEquipmentServicesAvailable]]" on-tap="_handleNavigateRoomSchedule">
+						<div class="row-content">Room Calendar</div>
+						<paper-icon-button primary icon="hardware:keyboard-arrow-right"></paper-icon-button>
+					</div>
+					<div class="tappable-row" on-tap="_handleNavigateRoomLocation">
+						<div class="row-content">Room Location</div>
+						<paper-icon-button primary icon="hardware:keyboard-arrow-right"></paper-icon-button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</template>
+</dom-module>
+<script>
+	Polymer({
+
+		is: "tripage-room-details",
+		behaviors: [RoomReservationBehavior, RoomReservationPageBehavior],
+
+		properties: {
+			favoriteRooms: Array,
+
+			reservationManager: Object,
+			resourceId: String,
+
+			preCreateComplete: {
+				type: Boolean,
+				value: false
+			},
+			backEventName: String
+      	},
+
+		listeners: {
+		},
+
+		_computeFavIcon: function(isFav) {
+			return isFav ? "icons:favorite" : "icons:favorite-border";
+		},
+
+		_isApprovalRequired: function(approvalName) {
+			return approvalName && approvalName === "Requestable";
+		},
+
+		_isBusy: function(isBusy, roomDetailsLoading, layoutOptionsLoading, favoriteRoomsLoading) {
+			return isBusy || roomDetailsLoading || layoutOptionsLoading || favoriteRoomsLoading;
+		},
+
+		_handleToggleFavorite: function(e) {
+			// console.log("_handleToggleFavorite");
+			// console.log(e);
+
+			var roomId = this._roomDetails._id;
+			var isFavorite = this._roomDetails.isFavorite;
+			this.fire("action-toggle-room-favorite", { 'roomId' : roomId, "isFavorite" : !isFavorite });
+		},
+
+		_handleBack: function(e) {
+			this.fire(this.backEventName);
+			// this.fire(this.params.backEventName);
+		},
+
+		_handleNavigateRoomSchedule: function(e) {
+			this.fire("navigate-room-schedule", { roomId: this.params.roomId });
+		},
+
+		_handleNavigateRoomLocation: function(e) {
+			this.fire("navigate-room-location", { roomId: this.params.roomId });
+		},
+
+		_pageAttached: function() {
+
+			if (!this._isPageActive)
+				return;
+
+			this.$.reservationLocation.refresh();
+		}
+
+		// _getRoomId: function() {
+		// 	// return this.params.roomId;
+		// 	return this._roomDetails._id;
+		// },
+
+		// _handleBookRoom: function(e) {
+		// 	var roomId = this._getRoomId();
+		// 	this.fire("action-book-room", { 'roomId' : roomId });
+		// },
+
+		// _handleWaitListRoom: function(e) {
+		// 	var roomId = this._getRoomId();
+		// 	this.fire("action-waitlist-room", { 'roomId' : roomId });
+		// },
+		// _handleOpenRoomPhotos: function(e) {
+		// 	// console.log("_handleOpenRoomPhotos");
+		// 	// console.log(this._getRoomId());
+
+		// 	var roomId = this._getRoomId();
+		// 	this.fire("navigate-room-details-photos", { 'roomId' : roomId });
+		// 	// this.$.notYetImplementedDialog.open();
+		// },
+
+		// _handleOpenRoomSchedule: function(e) {
+		// 	var roomId = this._getRoomId();
+		// 	// this.fire("navigate-room-details-schedule", { 'roomId' : roomId });
+		// 	this.$.notYetImplementedDialog.open();
+		// },
+
+		// _handleOpenRoomTrends: function(e) {
+		// 	var roomId = this._getRoomId();
+		// 	// this.fire("navigate-room-details-trends", { 'roomId' : roomId });
+		// 	this.$.notYetImplementedDialog.open();
+		// },
+
+		// _handleOpenRoomSimilarRooms: function(e) {
+		// 	var roomId = this._getRoomId();
+		// 	// this.fire("navigate-room-details-similar", { 'roomId' : roomId });
+		// 	this.$.notYetImplementedDialog.open();
+		// },
+
+		// _handleOpenRoomLocate: function(e) {
+		// 	var roomId = this._getRoomId();
+		// 	// this.fire("navigate-room-details-locate", { 'roomId' : roomId });
+		// 	this.$.notYetImplementedDialog.open();
+		// },
+	});
+</script>

@@ -1,0 +1,430 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<link rel="import" href="../triplat-debug/triplat-debug.html">
+<link rel="import" href="../triplat-image/triplat-image.html">
+
+<link rel="import" href="../triplat-ds/triplat-ds.html">
+<link rel="import" href="../triplat-query/triplat-query.html">
+<link rel="import" href="../triplat-select-input/triplat-select-input.html">
+
+<link rel="import" href="../tricore-url/tricore-url.html">
+
+<link rel="import" href="../iron-icons/iron-icons.html">
+<link rel="import" href="../iron-icons/communication-icons.html">
+<link rel="import" href="../iron-icons/hardware-icons.html">
+<link rel="import" href="../iron-icons/av-icons.html">
+<link rel="import" href="../iron-icons/device-icons.html">
+<link rel="import" href="../iron-input/iron-input.html">
+<link rel="import" href="../iron-image/iron-image.html">
+<link rel="import" href="../paper-button/paper-button.html">
+<link rel="import" href="../paper-material/paper-material.html">
+<link rel="import" href="../paper-input/paper-input.html">
+<link rel="import" href="../paper-item/paper-item.html">
+<link rel="import" href="../paper-header-panel/paper-header-panel.html">
+<link rel="import" href="../paper-fab/paper-fab.html">
+<link rel="import" href="../paper-tabs/paper-tabs.html">
+<link rel="import" href="../paper-tooltip/paper-tooltip.html">
+<link rel="import" href="../paper-badge/paper-badge.html">
+
+<link rel="import" href="../paper-spinner/paper-spinner.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+
+<link rel="import" href="../triplat-loading-indicator/triplat-loading-indicator.html">
+
+<link rel="import" href="tricomp-equipment-order-item.html">
+<link rel="import" href="tricomp-alert-message.html">
+
+<link rel="import" href="room-reservation-behavior.html">
+<link rel="import" href="room-reservation-page-behavior.html">
+
+<dom-module id="tripage-equipment-order">
+
+	<link rel="import" type="css" href="shared.css">
+
+	<style>
+
+		:host {
+			@apply(--layout-vertical);
+		}
+
+		.hold-time-message {
+			margin-bottom: 10px;
+		}
+
+		.list {
+			@apply(--layout-vertical);
+			@apply(--layout-flex);
+			padding-left: 10px;
+		}
+
+		.order-cost {
+			font-weight: bold;
+		}
+		.order-header {
+			@apply(--layout-horizontal);
+			@apply(--layout-center);
+			background-color: var(--ibm-teal-40);
+			color: white;
+			font-size: 18px;
+			padding: 10px;
+		}
+		.order-title {
+			@apply(--layout-flex);
+		}
+
+	</style>
+
+	<template>
+
+		<tricore-url raw-url="/getCompanyFile.jsp?fileLoc=" bind-url="{{imgUrl}}"></tricore-url>
+
+		<triplat-loading-indicator show="[[_pageLoading]]"></triplat-loading-indicator>
+
+		<!-- <triplat-debug message="tripage-equipment-order.resourceId" value="{{resourceId}}"></triplat-debug> -->
+
+		<triplat-ds id="reservationManager" name="reservationManager" data="{{reservationManager}}" loading="{{reservationManagerLoading}}">
+			<!-- <triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"> -->
+			<triplat-ds-context name="myReservationManagers" context-id="[[specId]]"></triplat-ds-context>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-equipment-order.reservationManager" value="{{reservationManager}}"></triplat-debug> -->
+
+		<triplat-ds id="equipmentOrders" name="equipmentOrders" filtered-data="{{equipmentOrders}}" loading="{{equipmentOrdersLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"></triplat-ds-context>
+			<triplat-query>
+				<triplat-query-filter name="resourceId" operator="equals" value="[[resourceId]]"></triplat-query-filter>
+			</triplat-query>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-equipment-order.equipmentOrders" value="{{equipmentOrders}}"></triplat-debug> -->
+
+		<triplat-ds id="equipmentSpecs" name="equipmentSpecs" data="{{equipmentSpecs}}" loading="{{equipmentSpecsLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"></triplat-ds-context>
+			<triplat-ds-context name="reservationLocations" context-id="[[resourceId]]"></triplat-ds-context>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-equipment-order.equipmentSpecs" value="{{equipmentSpecs}}"></triplat-debug> -->
+
+		<triplat-ds id="reservationLocation" name="reservationLocations" data="{{_reservationLocation}}" loading="{{_reservationLocationsLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"></triplat-ds-context>
+			<triplat-ds-instance instance-id="[[resourceId]]"></triplat-ds-instance>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-equipment-order.reservationLocation" value="{{_reservationLocation}}"></triplat-debug> -->
+
+		<triplat-ds id="currentUser" name="currentUser" data="{{currentUser}}"></triplat-ds>
+
+		<tricomp-page-header page-title="[[_reservationLocation.room.value]]"></tricomp-page-header>
+
+		<div class="page-main" hidden$="[[!equipmentOrdersDisplay.length]]">
+		<div class="page-wrap">
+		
+			<tricomp-alert-message danger icon="ibm:clock-time" id="holdTimeMessage" class="hold-time-message" show$="[[_reservationLocation.holdTimeDeadline]]" show-tooltip-indicator-icon>
+				<span hidden$="[[holdTimeExpired]]">Hold expires in</span>
+				<triplat-countdown class="hold-time-countdown"
+					name="booking-expiration"
+					deadline="[[_reservationLocation.holdTimeDeadline]]"
+					expired-text="Hold time is expired."
+					timezone="[[currentUser._TimeZoneId]]"
+					is-expired="{{holdTimeExpired}}">
+				</triplat-countdown>
+			</tricomp-alert-message>
+			<paper-tooltip for="holdTimeMessage" position="bottom" offset="5" animation-delay="100" fit-to-visible-bounds>When the hold time on this room expires, all added food and equipment are not saved, and the room is removed for this reservation.</paper-tooltip>
+
+			<div class="list">
+				<template id="listTemplate" is="dom-repeat" items="[[equipmentOrdersDisplay]]">
+					<tricomp-equipment-order-item item="{{item}}"></tricomp-equipment-order-item>
+				</template>
+			</div>
+		</div>
+		</div>
+
+		<template is="dom-if" if="[[!equipmentOrdersDisplay.length]]">
+			<div class="page-main empty-data-message">
+				<span hidden$="[[_pageLoading]]">No equipment order items are available.</span>
+			</div>
+		</template>
+
+		<tricomp-page-toolbar>
+			<tricomp-page-toolbar-button label="Done" icon="ibm:success-confirmation" on-tap="_handleUpdateOrders"></tricomp-page-toolbar-button>
+		</tricomp-page-toolbar>
+
+	</template>
+</dom-module>
+<script>
+	Polymer({
+
+		is: "tripage-equipment-order",
+		behaviors: [RoomReservationBehavior, RoomReservationPageBehavior],
+
+		properties: {
+			reservationManager: Object,
+			equipmentSpecs: Object,
+			equipmentOrders: Object,
+			equipmentOrdersDisplay: Array,
+
+			resourceId: String,
+			addedEquipmentId: String,
+			
+			_pageLoading: {
+				type: Boolean,
+				computed: "_isBusy(isBusy, reservationManagerLoading, equipmentOrdersLoading, equipmentSpecsLoading, _reservationLocationsLoading)"
+			},
+      	},
+
+		observers: [
+			"_handleChanges(equipmentSpecs, equipmentOrders)",
+		],
+
+		listeners: {
+			"action-add-equipment": "_handleAddEquipment",
+			"equipment-order-changed": "_handleEquipmentOrderChanged",
+			"navigate-equipment-details-save": "_handleNavigateEquipmentDetails"
+		},
+
+		_isBusy: function(isBusy, reservationManagerLoading, equipmentOrdersLoading, equipmentSpecsLoading, reservationLocationsLoading) {
+			return isBusy || reservationManagerLoading || equipmentOrdersLoading || equipmentSpecsLoading || reservationLocationsLoading;
+		},
+
+		_handleEquipmentOrderChanged: function() {
+			this._setDirtyFlag();
+		},
+
+		_setDirtyFlag: function() {
+			this.set("_dirtyFlag", true);
+		},
+
+		_clearDirtyFlag: function() {
+			this.set("_dirtyFlag", false);
+		},
+
+		_handleChanges: function(equipmentSpecs, equipmentOrders) {
+			// console.log("tripage-equipment-order._handleChanges");
+			// console.log(equipmentSpecs);
+			// console.log(equipmentOrders);
+
+			// if (this.equipmentOrdersDisplay != undefined)
+			// 	return;
+
+			if (!this._isPageActive)
+				return;
+
+			if (this._dirtyFlag) {
+				// console.log("skipping _handleChanges");
+				return;
+			} else {
+				// console.log("processing _handleChanges");
+			}
+
+			this.equipmentOrdersDisplay = new Array();
+
+			if (equipmentSpecs && equipmentSpecs.constructor === Array &&
+				equipmentOrders && equipmentOrders.constructor === Array) {
+
+				for (var itemIndex=0; itemIndex < equipmentSpecs.slice(0).length; itemIndex++) {
+					var spec = equipmentSpecs[itemIndex];
+
+					var matchingOrderItem = null;
+					for (var orderIndex=0; orderIndex < equipmentOrders.slice(0).length; orderIndex++) {
+						var orderItem = equipmentOrders[orderIndex];
+
+						if (orderItem.equipmentId == spec._id) {
+							matchingOrderItem = orderItem;
+							break;
+						}
+					}
+
+					if (matchingOrderItem == null) {
+						var newOrder = new Object();
+
+						newOrder._id = null;
+						newOrder.orderNum = null;
+
+						newOrder.image = spec.image;
+						newOrder.equipment = spec.name;
+						newOrder.equipmentId = spec._id;
+
+						newOrder.usageCost = new Object;
+						newOrder.usageCost.uom = spec.usageCost.uom;
+						newOrder.usageCost.value = spec.usageCost.value;
+
+						newOrder.totalCost = new Object;
+						newOrder.totalCost.uom = spec.usageCost.uom;
+						newOrder.totalCost.value = 0;
+
+						newOrder.quantity = 0;
+						newOrder.instructions = "";
+						// newOrder.instructions = "[this is a new line item]";
+
+						this.push("equipmentOrdersDisplay", newOrder);
+					} else {
+						this.push("equipmentOrdersDisplay", matchingOrderItem);
+					}
+				}
+			}
+		},
+
+		_handleAddEquipment: function(e) {
+			// console.log("tripage-equipment-order._handleAddEquipment");
+			var equipmentId = e.detail.equipmentId;
+			var el = e.detail.el;
+
+			this._addEquipmentOrder(equipmentId, el);
+		},
+
+		_addEquipmentOrder: function(equipmentId, el) {
+			var wfParams = {};
+			wfParams.resource = this.resourceId;
+			wfParams.specifications = equipmentId;
+
+			var model = this.$.listTemplate.modelForElement(el);
+			var orderItem = model.item;
+			if (orderItem._id > 0)
+				return;
+
+			this._setDirtyFlag();
+
+			this._setBusy();
+
+			this.$.reservationManager.updateRecord(this.reservationManager._id, TriPlatDs.RefreshType.SERVER, "actions", "addEquipment", wfParams).then(function(wfReturnParams) {
+
+				if (wfReturnParams.wfParametersMap.createdorder.length == 1) {
+					var createdOrderId = wfReturnParams.wfParametersMap.createdorder[0];
+					if (createdOrderId > 0) {
+						model.set("item.quantity", 1);
+						model.set("item.instructions", "");
+						model.set("item._id", createdOrderId);
+					}
+				}
+
+				this.async(function() {
+					this._clearBusy();
+				});
+			}.bind(this));
+		},
+
+		_updateEquipmentOrder: function(orderItem) {
+			return new Promise(function(resolve) {
+
+				// console.log("updating equipment order", orderItem);
+
+				var equipmentOrders = this.equipmentOrders;
+				if (equipmentOrders) {
+					// find and update the equipmentorder with the quantity and instructions
+					for (var index=0; index < equipmentOrders.slice(0).length; index++) {
+						var equipmentOrder = equipmentOrders[index];
+
+						if (equipmentOrder.equipmentId == orderItem.equipmentId) {
+							// console.log("updating foodOrderLineItem with quantity");
+							equipmentOrder.quantity = orderItem.quantity;
+							equipmentOrder.instructions = orderItem.instructions;
+							break;
+						}
+					}
+				}
+
+				this.$.equipmentOrders.updateRecord(orderItem._id, TriPlatDs.RefreshType.SERVER).then(function() {
+
+					var wfParams = {};
+					wfParams.resource = this.resourceId;
+					wfParams.orders = orderItem._id;
+
+					this.$.reservationManager.updateRecord(this.reservationManager._id, TriPlatDs.RefreshType.SERVER, "actions", "updateEquipment", wfParams).then(function() {
+						resolve();
+					}.bind(this));
+				}.bind(this));
+			}.bind(this));
+		},
+
+		_cancelEquipmentOrder: function(orderItem) {
+			return new Promise(function(resolve) {
+				// console.log("cancelling equipment order", orderItem);
+
+				var wfParams = {};
+				wfParams.orders = orderItem._id;
+
+				this.$.reservationManager.updateRecord(this.reservationManager._id, TriPlatDs.RefreshType.SERVER, "actions", "cancelEquipment", wfParams).then(function() {
+					resolve();
+				}.bind(this));
+			}.bind(this));
+		},
+
+		_handleUpdateOrders: function(e) {
+			// console.log("_handleUpdateOrders");
+
+			this._setBusy();
+
+			this._refreshEquipmentOrdersData().then(function() {
+				this._updateOrders(this.resourceId, this.equipmentOrdersDisplay).then(function() {
+					// this.$.reservationManager.updateRecord(this.reservationManager._id, TriPlatDs.RefreshType.SERVER).then(function() {
+						// console.log("updating equipment orders complete");
+
+						this._clearBusy();
+						this._handleNavigateSummary();
+					// }.bind(this));
+				}.bind(this));
+			}.bind(this));
+		},
+
+		_handleNavigateEquipmentDetails: function(e) {
+			// console.log("_handleNavigateEquipmentDetails");
+			// console.log(e);
+
+			var equipmentId = e.detail.equipmentId;
+			if (equipmentId) {
+				this._refreshEquipmentOrdersData().then(function() {
+					this._updateOrders(this.resourceId, this.equipmentOrdersDisplay).then(function() {
+						// console.log("saving equipment orders complete");
+
+						this.fire("navigate-equipment-details", { 'equipmentId' : equipmentId });
+					}.bind(this));
+				}.bind(this));
+			}
+		},
+
+		_updateOrders: function(resourceId, equipmentOrders) {
+			return new Promise(function(resolve) {
+
+				var promises = [];
+
+				// console.log("_updateOrders");
+				for (var orderIndex=0; orderIndex < equipmentOrders.slice(0).length; orderIndex++) {
+					var orderItem = equipmentOrders[orderIndex];
+
+					if (orderItem._id > 0) {
+						if (orderItem._modified) {
+							if (orderItem.quantity < 1) {
+								promises.push(this._cancelEquipmentOrder(orderItem));
+							} else {
+								promises.push(this._updateEquipmentOrder(orderItem));
+							}
+						}
+					}
+				}
+
+				Promise.all(promises).then(function() {
+					resolve();
+				}.bind(this));
+			}.bind(this));
+		},
+
+		_refreshEquipmentOrdersData: function() {
+			// console.log("tripage-equipment-order._refreshEquipmentOrderData");
+			return new Promise(function(resolve) {
+				this.$.equipmentOrders.refresh().then(function() {
+					resolve();
+				}.bind(this));
+			}.bind(this));
+		},
+
+		// override
+		_pageAttached : function() {
+			// console.log("tripage-equipment-order._pageAttached");
+
+			if (!this._isPageActive)
+				return;
+
+			// reset the dirty flag
+			this._clearDirtyFlag();
+
+			this._refreshEquipmentOrdersData().then(function() {
+			}.bind(this));
+		},
+	});
+</script>

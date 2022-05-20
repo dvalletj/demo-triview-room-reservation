@@ -1,0 +1,789 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2015-2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<link rel="import" href="../triplat-debug/triplat-debug.html">
+<link rel="import" href="../triplat-image/triplat-image.html">
+
+<link rel="import" href="../triplat-ds/triplat-ds.html">
+<link rel="import" href="../triplat-query/triplat-query.html">
+<link rel="import" href="../triplat-select-input/triplat-select-input.html">
+<link rel="import" href="../triplat-datetime-picker/triplat-datetime-picker.html">
+
+<link rel="import" href="../tricore-url/tricore-url.html">
+
+<link rel="import" href="../iron-image/iron-image.html">
+<link rel="import" href="../iron-autogrow-textarea/iron-autogrow-textarea.html">
+<link rel="import" href="../iron-input/iron-input.html">
+<link rel="import" href="../paper-button/paper-button.html">
+<link rel="import" href="../paper-input/paper-input.html">
+<link rel="import" href="../paper-input/paper-textarea.html">
+<link rel="import" href="../paper-tooltip/paper-tooltip.html">
+<link rel="import" href="../paper-checkbox/paper-checkbox.html">
+
+<link rel="import" href="../paper-radio-group/paper-radio-group.html">
+<link rel="import" href="../paper-radio-button/paper-radio-button.html">
+
+<link rel="import" href="../neon-animation/animations/scale-up-animation.html">
+<link rel="import" href="../neon-animation/animations/fade-out-animation.html">
+
+<link rel="import" href="../triplat-loading-indicator/triplat-loading-indicator.html">
+
+<link rel="import" href="room-reservation-behavior.html">
+<link rel="import" href="room-reservation-page-behavior.html">
+<link rel="import" href="tricomp-lifecyle-events.html">
+<link rel="import" href="tricomp-reservation-summary-item.html">
+<link rel="import" href="tricomp-alert-message.html">
+
+<dom-module id="tripage-reservation-summary">
+
+	<link rel="import" type="css" href="shared.css">
+
+	<style>
+
+		:host {
+			@apply(--layout-vertical);
+		}
+
+		.header-input {
+			padding: 10px 15px 5px;
+		}
+
+		.row-container {
+			@apply(--layout-horizontal);
+			@apply(--layout-center);
+		}
+
+		.time-section {
+			padding: 10px;
+		}
+
+		.all-day-checkbox {
+			padding: 10px 0;
+		}
+
+		.time-container {
+			@apply(--layout-horizontal);
+			@apply(--layout-center);
+			@apply(--layout-wrap);
+		}
+
+		triplat-datetime-picker {
+			--triplat-date-picker-width: 100%;
+			padding: 0 5px;
+
+			flex: 1 1 250px;
+			-webkit-flex: 1 1 250px; /* fix to address https://bugs.webkit.org/show_bug.cgi?id=136041 */
+		}
+
+		triplat-date-picker {
+			--triplat-date-picker-width: 100%;
+			padding: 0 5px;
+			
+			flex: 1 1 200px;
+			-webkit-flex: 1 1 200px; /* fix to address https://bugs.webkit.org/show_bug.cgi?id=136041 */
+		}
+		
+		.date-picker-label {
+			@apply(--layout-horizontal);
+		}
+
+		.tappable-rows-section {
+			padding: 2px 0px 0px 10px;
+		}
+
+		.row-container.tappable {
+			border-top: 1px solid var(--tri-primary-content-accent-color);
+			cursor: pointer;
+		}
+		.row-container.tappable[disabled] {
+			pointer-events: none;
+			cursor: default;
+		}
+
+		div.row-container.tappable:last-of-type {
+			border-bottom: 1px solid var(--tri-primary-content-accent-color);
+		}
+
+		.row-label {
+			@apply(--layout-flex);
+			padding: 12px 0;
+		}
+
+		paper-dialog {
+			overflow: auto;
+		}
+
+		.warning-text { 
+			color: red;
+			font-weight: bold;
+		}
+
+		.no-rooms-alert {
+			margin: 10px;
+		}
+
+	</style>
+
+	<template>
+
+		<!-- <triplat-debug message="tricomp-reservation-summary.isBusy" value="[[isBusy]]"></triplat-debug> -->
+
+		<triplat-ds id="reservationManager" name="reservationManager" data="{{reservationManager}}" loading="{{reservationManagerLoading}}">
+			<!-- <triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"> -->
+			<triplat-ds-context name="myReservationManagers" context-id="[[specId]]">
+			</triplat-ds-context>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-reservation-summary.reservationManager" value="{{reservationManager}}"></triplat-debug> -->
+
+		<triplat-ds id="reservationManagerInstance" name="reservationManagerInstance" data="{{reservationManagerInstance}}" loading="{{reservationManagerInstanceLoading}}">
+			<!-- <triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"> -->
+			<triplat-ds-context name="myReservationManagers" context-id="[[specId]]">
+			</triplat-ds-context>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-reservation-summary.reservationManagerInstance" value="{{reservationManagerInstance}}"></triplat-debug> -->
+
+		<triplat-ds id="reservationLocations" name="reservationLocations" data="{{reservationLocations}}" loading="{{reservationLocationsLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[specId]]">
+			</triplat-ds-context>
+		</triplat-ds>
+		<tricomp-array-comparator
+				source="{{reservationLocations}}"
+				source-match-field="room.id"
+				compare-to="{{favoriteRooms}}"
+				match-flag="isFavorite"
+				update-source>
+		</tricomp-array-comparator>
+		<!-- <triplat-debug message="tripage-reservation-summary.reservationLocations" value="{{reservationLocations}}"></triplat-debug> -->
+
+		<triplat-ds id="equipmentOrders" name="equipmentOrders" data="{{equipmentOrders}}" loading="{{equipmentOrdersLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]">
+			</triplat-ds-context>
+		</triplat-ds>
+
+		<!-- <triplat-debug message="tripage-reservation-summary.equipmentOrders" value="{{equipmentOrders}}"></triplat-debug> -->
+
+		<triplat-ds id="foodOrders" name="foodOrders" data="{{foodOrders}}" loading="{{foodOrdersLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]">
+			</triplat-ds-context>
+		</triplat-ds>
+
+		<!-- <triplat-debug message="tripage-reservation-summary.foodOrders" value="{{foodOrders}}"></triplat-debug> -->
+
+		<triplat-ds id="currentUser" name="currentUser" data="{{currentUser}}"></triplat-ds>
+		<!-- <triplat-debug message="tricomp-reservation-summary-item.currentUser" value="{{currentUser}}"></triplat-debug> -->
+
+		<triplat-ds id="favoriteRooms" name="favoriteRooms" data="{{favoriteRooms}}" loading="{{favoriteRoomsLoading}}">
+			<triplat-ds-context name="currentUser" context-id="[[currentUser._id]]"></triplat-ds-context>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-reservation-summary.favoriteRooms" value="[[favoriteRooms]]"></triplat-debug> -->
+
+		<triplat-ds id="exceptionOccurrences" name="exceptionOccurrences" loading="{{exceptionOccurrencesLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[specId]]"></triplat-ds-context>
+		</triplat-ds>
+
+		<triplat-ds id="equipmentOrders" name="equipmentOrders" loading="{{equipmentOrdersLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[specId]]"></triplat-ds-context>
+		</triplat-ds>
+
+		<triplat-ds id="foodOrders" name="foodOrders" loading="{{foodOrdersLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[specId]]"></triplat-ds-context>
+		</triplat-ds>
+
+		<!-- <triplat-debug message="tripage-reservation-summary.disabled" value="[[disabled]]"></triplat-debug> -->
+
+		<triplat-loading-indicator show="[[_isBusy(isBusy, reservationManagerLoading, reservationManagerInstanceLoading, reservationLocationsLoading, favoriteRoomsLoading, exceptionOccurrencesLoading, equipmentOrdersLoading, foodOrdersLoading)]]"></triplat-loading-indicator>
+
+		<tricomp-page-header id="pageHeader" page-title="Reservation Summary" show-home-button></tricomp-page-header>
+
+		<div class="page-main">
+		<div class="page-wrap">
+
+			<tricomp-alert-message info id="outlook-reservation" hidden$="[[!_isReadOnlyOutlook(isOutlookEmbedded, reservationManager)]]" show-tooltip-indicator-icon>Created in Outlook</tricomp-alert-message>
+			<paper-tooltip for="outlook-reservation" position="bottom" offset="5" animation-delay="100" fit-to-visible-bounds>This reservation was created in Microsoft Outlook. Parts of this reservation are editable in Outlook only.</paper-tooltip>
+
+			<tricomp-alert-message error hidden$="[[!_showMissingSubjectMessage]]">
+				<div>Provide a subject for the reservation.</div>
+			</tricomp-alert-message>
+
+			<tricomp-alert-message warning hidden$="[[!reservationManager.userMessage]]">
+				<div>[[reservationManager.userMessage]]</div>
+			</tricomp-alert-message>
+
+			<template is="dom-if" if="[[!isOutlookEmbedded]]">
+				<section hidden$="{{_isRoomTypeWorkspace(reservationManager.searchRoomType)}}">
+					<paper-input-container class="header-input">
+						<label><span class="required-asterisk">*</span>Subject</label>
+						<input is="iron-input" id="subjectField"
+							bind-value="{{reservationManager.reservationSubject}}"
+							maxlength="150"
+							readonly$="[[_readonlySubject(isOutlookEmbedded, reservationManager)]]"
+							required>
+						<!-- <iron-autogrow-textarea class="paper-input-input"
+							autofocus
+							required
+							bind-value="{{reservationManager.reservationSubject}}"
+							readonly$="[[_readonlySubject(isOutlookEmbedded, reservationManager)]]"
+							rows="1"
+							max-rows="3"
+							maxlength="150">
+						</iron-autogrow-textarea> -->
+					</paper-input-container>
+				</section>
+
+				<paper-radio-group class="workspace-time-options-container-days" selected="{{_computeWorkspaceDayOption(reservationManager.reservationStartTime, currentUser._TimeZoneId)}}" hidden$="[[_isHideWorkspaceTimeOptions(isOutlookEmbedded, reservationManager.searchRoomType)]]">
+					<paper-radio-button name="today" disabled>Today</paper-radio-button>
+					<paper-radio-button name="tomorrow" disabled>Tomorrow</paper-radio-button>
+				</paper-radio-group>
+
+				<paper-radio-group class="workspace-time-options-container-times" selected="{{_computeWorkspaceTimeOption(reservationManager.reservationStartTime, reservationManager.reservationEndTime, currentUser._TimeZoneId)}}" hidden$="[[_isHideWorkspaceTimeOptions(isOutlookEmbedded, reservationManager.searchRoomType)]]">
+					<paper-radio-button name="am" disabled>Morning</paper-radio-button>
+					<paper-radio-button name="pm" disabled>Afternoon</paper-radio-button>
+					<paper-radio-button name="all-day" disabled>All Day</paper-radio-button>
+				</paper-radio-group>
+
+				<section class="time-section" hidden$="[[_isHideMeetingTimeOptions(isOutlookEmbedded, reservationManager.searchRoomType)]]">
+					<paper-checkbox
+						id="allDayToggleButton"
+						class="all-day-checkbox"
+						checked="{{reservationManager.reservationAllDay}}"
+						noink
+						disabled="[[_disableAllDayCheckbox(isOutlookEmbedded, reservationManager)]]">All day event</paper-checkbox>
+
+					<div class="time-container" hidden$="[[reservationManager.reservationAllDay]]">
+						<triplat-datetime-picker
+							required
+							null-date-invalid
+							time-zone="{{currentUser._TimeZoneId}}"
+							display-format="{{currentUser._DateTimeFormat}}"
+							value="{{reservationManager.reservationStartTime}}"
+							readonly="[[_readonlyStartEndDateTime(isOutlookEmbedded, reservationManager)]]">
+							<div label class="date-picker-label"><span class="required-asterisk">*</span><iron-icon icon="av:play-arrow" class="start-reservation-time-icon"></iron-icon>Start</div>
+						</triplat-datetime-picker>
+						<triplat-datetime-picker
+							required
+							null-date-invalid
+							time-zone="{{currentUser._TimeZoneId}}"
+							display-format="{{currentUser._DateTimeFormat}}"
+							value="{{reservationManager.reservationEndTime}}"
+							readonly="[[_readonlyStartEndDateTime(isOutlookEmbedded, reservationManager)]]">
+							<div label class="date-picker-label"><span class="required-asterisk">*</span><iron-icon icon="av:stop" class="end-reservation-time-icon"></iron-icon>End</div>
+						</triplat-datetime-picker>
+					</div>
+
+					<div class="time-container" hidden$="[[!reservationManager.reservationAllDay]]">
+						<triplat-date-picker
+							required
+							null-date-invalid
+							time-zone="{{currentUser._TimeZoneId}}"
+							display-format="{{currentUser._DateFormat}}"
+							value="{{reservationManager.reservationStartDate}}"
+							readonly="[[_readonlyStartEndDateTime(isOutlookEmbedded, reservationManager)]]">
+							<div label class="date-picker-label"><span class="required-asterisk">*</span><iron-icon icon="av:play-arrow" class="start-reservation-time-icon"></iron-icon>Start</div>
+						</triplat-date-picker>
+						<triplat-date-picker
+							required
+							null-date-invalid
+							time-zone="{{currentUser._TimeZoneId}}"
+							display-format="{{currentUser._DateFormat}}"
+							value="{{reservationManager.reservationEndDate}}"
+							readonly="[[_readonlyStartEndDateTime(isOutlookEmbedded, reservationManager)]]">
+							<div label class="date-picker-label"><span class="required-asterisk">*</span><iron-icon icon="av:stop" class="end-reservation-time-icon"></iron-icon>End</div>
+						</triplat-date-picker>
+					</div>
+				</section>
+
+				<section class="tappable-rows-section" hidden$="[[_isHideMeetingTimeOptions(isOutlookEmbedded, reservationManager.searchRoomType)]]">
+					<div class="row-container tappable" on-tap="_handleNavigateRecurrence" disabled$="[[!_isAllowEditRecurrence(reservationManager, isOutlookEmbedded)]]">
+						<div class="row-label">[[_computeRecurrenceRuleDisplayLabel(reservationManager.reservationEditMode, reservationManager.recurrenceRuleLabel)]]</div>
+						<paper-icon-button primary icon="hardware:keyboard-arrow-right" hidden$="[[!_isAllowEditRecurrence(reservationManager, isOutlookEmbedded)]]"></paper-icon-button>
+					</div>
+					<div class="row-container tappable instructions-container" on-tap="_handleNavigateInstructions">
+						<div class="row-label">Instructions</div>
+						<paper-icon-button primary icon="hardware:keyboard-arrow-right"></paper-icon-button>
+					</div>
+				</section>
+			</template>
+
+			<tricomp-lifecyle-events
+				timezone="[[currentUser._TimeZoneId]]"
+				disabled="[[_hasDeclinedRooms(reservationLocations.*)]]"
+				check-in-required="[[reservationManagerInstance.checkInRequired]]"
+				check-in-reminder="[[reservationManagerInstance.checkInReminderDateTime]]"
+				check-in-auto-cancel="[[reservationManagerInstance.cancellationAutoDateTime]]"
+				planned-start="[[reservationManagerInstance.startDateTime]]"
+				planned-end="[[reservationManagerInstance.endDateTime]]"
+				actual-start="[[reservationManagerInstance.actualStart]]"
+				actual-end="[[reservationManagerInstance.actualEnd]]"
+				reservation-instance="[[reservationManagerInstance]]"
+				on-checkin="_handleCheckIn"
+				on-checkout="_handleCheckOut"
+				on-earlyend="_handleEarlyEnd"
+				on-start="_handleStart"
+				on-end="_handleEnd"
+				on-autocancel="_handleAutoCancel">
+			</tricomp-lifecyle-events>
+
+			<tricomp-alert-message warning class="no-rooms-alert" hidden$="[[!_computeShowNoRoomsMessage(isOutlookEmbedded, reservationManager, reservationLocations.*)]]">
+				<div>Add a room to this reservation by tapping the button below.</div>
+			</tricomp-alert-message>
+
+			<template is="dom-repeat" items="[[reservationLocations]]">
+				<tricomp-reservation-summary-item
+					item="{{item}}"
+					spec-id="[[pageContextId]]"></tricomp-reservation-summary-item>
+			</template>
+		</div>
+		</div>
+		
+		<tricomp-page-toolbar>
+			<tricomp-page-toolbar-button toolbar-left label="Cancel" on-tap="_handleCancel" icon="ibm:remove-delete" hidden$="[[!_showDelete(isOutlookEmbedded, reservationManager)]]"></tricomp-page-toolbar-button>
+			<tricomp-page-toolbar-button label="Add another room to this reservation" on-tap="_handleAddAnotherRoom" icon="ibm:add-new" hidden$="[[!_showAddAnotherRoom(isOutlookEmbedded, reservationManager)]]"></tricomp-page-toolbar-button>
+			<tricomp-page-toolbar-button 
+				toolbar-right$="[[_positionDoneToolbarRight(isOutlookEmbedded, reservationManager)]]" 
+				label="Done" 
+				on-tap="_handleSubmit" 
+				icon="ibm:success-confirmation" 
+				hidden$="[[!_showDone(isOutlookEmbedded, reservationManager)]]" 
+				disabled$="[[!_computeDoneEnabled(reservationManager.reservationStartTime, reservationManager.reservationEndTime, reservationManager.reservationAllDay, reservationManager.reservationStartDate, reservationManager.reservationEndDate, reservationLocations.*, isOutlookEmbedded, reservationManager)]]"></tricomp-page-toolbar-button>
+		</tricomp-page-toolbar>
+
+		<paper-dialog id="cancelDialog" entry-animation="scale-up-animation" exit-animation="fade-out-animation">
+			<p>Are you sure you want to cancel this reservation?</p>
+			<div class="buttons">
+				<paper-button secondary-outline dialog-dismiss>No</paper-button>
+				<paper-button dialog-confirm autofocus>Yes</paper-button>
+			</div>
+		</paper-dialog>
+
+		<paper-dialog id="cancelSeriesDialog" entry-animation="scale-up-animation" exit-animation="fade-out-animation">
+			<p>
+				Are you sure you want to cancel this reservation series?<br /> 
+				<span class="warning-text">Warning:</span> This will remove all occurrences and exceptions.
+			</p>
+			<div class="buttons">
+				<paper-button secondary-outline dialog-dismiss>No</paper-button>
+				<paper-button dialog-confirm autofocus>Yes</paper-button>
+			</div>
+		</paper-dialog>
+
+		<paper-dialog id="homeDialog" entry-animation="scale-up-animation" exit-animation="fade-out-animation">
+			<p>You have changes that have not been saved, are you sure you want to discard them?</p>
+			<div class="buttons">
+				<paper-button secondary-outline dialog-dismiss>No</paper-button>
+				<paper-button dialog-confirm autofocus>Yes</paper-button>
+			</div>
+		</paper-dialog>
+
+	</template>
+</dom-module>
+<script>
+	Polymer({
+
+		is: "tripage-reservation-summary",
+		behaviors: [RoomReservationBehavior, RoomReservationPageBehavior],
+
+		properties: {
+			reservationManager: Object,
+
+			exceptionOccurrences: Object,
+			equipmentOrders: Object,
+			foodOrders: Object,
+
+			reservationManagerInstance: Object,
+
+			imgUrl: String,
+
+			oldAllDay: Boolean,
+			oldStartTime: Date,
+			oldEndTime: Date,
+			oldStartDate: Date,
+			oldEndDate: Date,
+
+			preCreateComplete: {
+				type: Boolean,
+				value: false
+			},
+
+			_showMissingSubjectMessage: {
+				type: Boolean,
+				value: false
+			}
+      	},
+
+		listeners: {
+			"cancelDialog.iron-overlay-closed": "_handleCancelDialogClose",
+			'cancelSeriesDialog.iron-overlay-closed': '_handleCancelDialogClose',
+			"homeDialog.iron-overlay-closed": "_handleHomeDialogClose",
+			"pageHeader.home-tap": "_handleHome"
+		},
+
+		observers: [
+			"_handleAllDayChange(reservationManager.reservationAllDay)",
+			"_handleStartTimeChange(_isPageActive, reservationManager.reservationStartTime)",
+			"_handleEndTimeChange(_isPageActive, reservationManager.reservationEndTime)",
+			"_handleStartDateChange(_isPageActive, reservationManager.reservationStartDate)",
+			"_handleEndDateChange(_isPageActive, reservationManager.reservationEndDate)",
+		],
+
+		_computeShowNoRoomsMessage: function(isOutlookEmbedded, reservationManager, reservationLocations) {
+			return !this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager) && reservationLocations.base.length == 0;
+		},
+
+		_hasDeclinedRooms: function(reservationResources) {
+			var hasDeclinedRooms = false;
+			if (reservationResources && reservationResources.base.length > 0) {
+				for (var i = 0; i < reservationResources.length; i++) {
+					var room = reservationResources[i];
+					if (room.status === "Declined") {
+						hasDeclinedRooms = true;
+						break;
+					}
+				}
+			}
+			return hasDeclinedRooms;
+		},
+
+		_computeDoneEnabled: function(startTime, endTime, allDay, startDate, endDate, reservationLocations, isOutlookEmbedded, reservationManager) {
+            var doneEnabled = false;
+
+            /*var isWorkspace = this._isRoomTypeWorkspace(reservationManager.searchRoomType);
+            if (isWorkspace || (!isWorkspace && subject)) {*/
+	            if (!this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager) && reservationLocations.base.length == 0) {
+	                if (allDay) {
+	                    doneEnabled = startDate && endDate ? this._isAllDayStartAndEndDatesValid(startDate, endDate) : doneEnabled;
+	                } else {
+	                    doneEnabled = startTime && endTime ? this._isStartAndEndTimesValid(startTime, endTime) : doneEnabled;
+	                }
+	            } else if (this._isReadOnlyOutlook && reservationLocations.base.length >= 0) {
+	            	doneEnabled = true;
+	            }
+            /* }*/
+            return doneEnabled;
+        },
+
+		_handleNavigateRecurrence: function(e) {
+			this.fire("navigate-recurrence", {"backEventName": "navigate-summary-page-back"});
+		},
+
+		_isBusy: function(isBusy, reservationManagerLoading, reservationManagerInstanceLoading, reservationLocationsLoading, favoriteRoomsLoading, exceptionOccurrencesLoading, equipmentOrdersLoading, foodOrdersLoading) {
+			return isBusy || reservationManagerLoading || reservationManagerInstanceLoading || reservationLocationsLoading || favoriteRoomsLoading || exceptionOccurrencesLoading || equipmentOrdersLoading || foodOrdersLoading;
+		},
+
+		_isRecurring: function(recurrenceRule) {
+			// console.log("tripage-reservation-summary._isRecurring");
+			return recurrenceRule && recurrenceRule.length > 0;
+		},
+
+		_handleRecurrenceRuleChange: function() {
+			// console.log("tripage-reservation-summary._handleRecurrenceRuleChange");
+			// console.log(value);
+
+			if (this._isPageActive && this.reservationManager) {
+
+				// console.log("triggering recurrence workflow");
+				this._setBusy();
+
+				this.$.reservationManager.updateRecord(TriPlatDs.RefreshType.SERVER, "actions", "onChangeRecurrenceRule").then(function() {
+					// this.set("oldStartTime", this.reservationManager.reservationStartTime);
+					// this.set("oldEndTime", this.reservationManager.reservationEndTime);
+					// this.set("oldStartDate", this.reservationManager.reservationStartDate);
+					// this.set("oldEndDate", this.reservationManager.reservationEndDate);
+
+					// this.$.reservationManager.refresh().then(function() {
+						// this.$.lookupProperty.refresh().then(function() {
+							// this.$.lookupBuilding.refresh().then(function() {
+								// this.$.lookupRoom.refresh().then(function() {
+									this._clearBusy();
+								// }.bind(this));
+							// }.bind(this));
+						// }.bind(this));
+					// }.bind(this));
+				}.bind(this));
+			}
+		},
+
+		_handleAllDayChange: function(value) {
+			// console.log("tripage-reservation-summary._handleAllDayChange");
+			// console.log(value);
+
+			if (this._isPageActive && this.reservationManager) {
+				if (value != undefined && this.oldAllDay != undefined && value != this.oldAllDay) {
+					// console.log("triggering all day workflow");
+					this._setBusy();
+
+					this.$.reservationManager.updateRecord("actions", "onChangeAllDay").then(function() {
+						this.set("oldStartTime", this.reservationManager.reservationStartTime);
+						this.set("oldEndTime", this.reservationManager.reservationEndTime);
+						this.set("oldStartDate", this.reservationManager.reservationStartDate);
+						this.set("oldEndDate", this.reservationManager.reservationEndDate);
+
+						this.$.reservationManager.refresh().then(function() {
+							this._clearBusy();
+						}.bind(this));
+					}.bind(this));
+				}
+			}
+
+			this.set("oldAllDay", value);
+		},
+
+		_handleStartTimeChange: function(isPageActive, value) {
+			// console.log("tripage-reservation-summary._handleStartTimeChange");
+			// console.log(value);
+			// console.log(this.oldStartTime);
+
+			if (isPageActive && this.reservationManager) {
+				if (value && this.oldStartTime && value != this.oldStartTime) {
+					// console.log("triggering start time workflow");
+					this._setBusy();
+
+					this.$.reservationManager.updateRecord("actions", "onChangeStartTime").then(function() {
+						this.set("oldEndTime", this.reservationManager.reservationEndTime);
+
+						this.$.reservationManager.refresh().then(function() {
+							this._clearBusy();
+						}.bind(this));
+					}.bind(this));
+				}
+			}
+			this.set("oldStartTime", value);
+		},
+
+		_handleStartDateChange: function(isPageActive, value) {
+			// console.log("tripage-reservation-summary._handleStartDateChange");
+			// console.log(value);
+			// console.log(this.oldStartDate);
+
+			if (isPageActive && this.reservationManager) {
+				if (value && this.oldStartDate && value != this.oldStartDate) {
+					// console.log("triggering start date workflow");
+					this._setBusy();
+
+					this.$.reservationManager.updateRecord("actions", "onChangeStartDate").then(function() {
+						this.set("oldEndDate", this.reservationManager.reservationEndDate);
+
+						this.$.reservationManager.refresh().then(function() {
+							this._clearBusy();
+						}.bind(this));
+					}.bind(this));
+				}
+			}
+			this.set("oldStartDate", value);
+
+		},
+
+		_handleEndTimeChange: function(isPageActive, value) {
+			// console.log("tripage-reservation-summary._handleEndTimeChange");
+			// console.log(value);
+			// console.log(this.oldEndTime);
+
+			if (isPageActive && this.reservationManager) {
+				if (value && this.oldEndTime && value != this.oldEndTime) {
+					// console.log("triggering end time workflow");
+					this._setBusy();
+
+					this.$.reservationManager.updateRecord("actions", "onChangeEndTime").then(function() {
+						this.set("oldStartTime", this.reservationManager.reservationStartTime);
+
+						this.$.reservationManager.refresh().then(function() {
+							this._clearBusy();
+						}.bind(this));
+					}.bind(this));
+				}
+			}
+			this.set("oldEndTime", value);
+		},
+
+		_handleEndDateChange: function(isPageActive, value) {
+			// console.log("tripage-reservation-summary._handleEndDateChange");
+			// console.log(value);
+			// console.log(this.oldEndDate);
+
+			if (isPageActive && this.reservationManager) {
+				if (value && this.oldEndDate && value != this.oldEndDate) {
+					// console.log("triggering end date workflow");
+					this._setBusy();
+
+					this.$.reservationManager.updateRecord("actions", "onChangeEndDate").then(function() {
+						this.set("oldStartDate", this.reservationManager.reservationStartDate);
+
+						this.$.reservationManager.refresh().then(function() {
+							this._clearBusy();
+						}.bind(this));
+					}.bind(this));
+				}
+			}
+			this.set("oldEndDate", value);
+		},
+
+		_handleAddAnotherRoom: function(e) {
+			this.fire("navigate-room-results-dramatic", {'backEventName': "navigate-summary-page-back"});
+		},
+
+		_handleSubmit: function(e) {
+			if (!this.reservationManager.reservationSubject || this.reservationManager.reservationSubject == "") {
+				// Display error message and bring focus back to Subject field
+				this._showMissingSubjectMessage = true;
+				this.$$("#subjectField").focus();
+			} else {
+				this._showMissingSubjectMessage = false;
+				this.fire("action-submit");
+			}
+		},
+
+		_handleCancel: function(e) {
+			// console.log("tripage-reservation-summary._handleCancelDialog");
+			if (this._isRecurringMeeting(this.reservationManager)) {
+				this.$.cancelSeriesDialog.open();
+			} else {
+				this.$.cancelDialog.open();
+			}
+		},
+
+		_handleCancelDialogClose: function(e, detail) {
+			// console.log("tripage-reservation-summary._handleCancelDialogClose");
+			// console.log(e);
+			// console.log(detail);
+
+			if (detail && detail.confirmed) {
+				if (this._isExistingReservation(this.reservationManager)) {
+					this._doCancel();
+				} else {
+					this._handleNavigateList();
+				}
+			}
+		},
+
+		_doCancel: function(e) {
+			this.fire("action-cancel");
+		},
+
+		_handleCheckIn: function(e) {
+			// this.fire("action-checkin-from-list", { 'instanceId' : this._getReservationInstanceSpecId()});
+			this.fire("action-checkin");
+		},
+
+		_handleCheckOut: function(e) {
+			// this.fire("action-checkout-from-list", { 'instanceId' : this._getReservationInstanceSpecId()});
+			this.fire("action-checkout");
+		},
+
+		_handleEarlyEnd: function(e) {
+			// this.fire("action-earlyend-from-list", { 'instanceId' : this._getReservationInstanceSpecId()});
+			this.fire("action-earlyend");
+		},
+
+		_handleStart: function(e) {
+			// console.log("meeting has started...");
+			if (this.reservationManagerInstance.cancellationAutoDateTime) {
+				console.log("this meeting has an auto-cancellation policy - skipping auto start");
+			} else {
+				this.set("reservationManagerInstance.actualStart", new Date());
+			}
+		},
+
+		_handleEnd: function(e) {			
+			// console.log("meeting has ended...");
+			this.set("reservationManagerInstance.actualEnd", new Date());
+			this.async(function() {
+				// console.log("refreshing list...");
+				// this.fire("refresh-reservation-list");
+			}, 5000);
+		},
+
+		_handleAutoCancel: function(e) {
+			// console.log("meeting has been auto cancelled...");
+			if (this.reservationManagerInstance.cancellationAutoDateTime) {
+				this.set("reservationManagerInstance.actualStart", "-1");
+				this.set("reservationManagerInstance.actualEnd", "-1");
+			}
+		},
+
+		_refreshReservationInstance: function() {
+			// console.log("tripage-reservation-summary._refreshReservationInstance");
+			this.$.reservationManagerInstance.refresh();
+		},
+
+		_getReservationInstanceSpecId: function() {
+			// return this.item._id;
+			return this.reservationManagerInstance ? this.reservationManagerInstance._id : null;
+		},
+
+		_handleHome: function(e) {
+			// console.log("tripage-reservation-summary._handleHome");
+
+			this._setBusy();
+
+			var wfParams = {};
+			if (this.reservationManager.reservation != null && this.reservationManager.reservation.id) {
+				wfParams.reservation = this.reservationManager.reservation.id;
+			}
+
+			this.$.reservationManager.updateRecord(TriPlatDs.RefreshType.SERVER, "actions", "isChanged", wfParams).then(function() {
+				this._clearBusy();
+
+				if (this.reservationManager.isDirty) {
+					this.$.homeDialog.open();
+				} else {
+					this._handleNavigateList();
+				}
+			}.bind(this));
+		},
+
+		_handleHomeDialogClose: function(e, detail) {
+			// console.log("tripage-reservation-summary._handleHomeDialogClose");
+			// console.log(e);
+			// console.log(detail);
+
+			if (detail && detail.confirmed) {
+				this._handleNavigateList();
+			}
+		},
+
+		_refreshReservationData: function() {
+			// console.log("tripage-reservation-summary._refreshReservationData");
+
+			// this.$.reservationManager.refresh();
+			// this.$.reservationLocations.refresh();
+			// this.$.reservationManagerInstance.refresh();
+
+			this.$.exceptionOccurrences.refresh();
+
+			this._refreshEquipmentOrdersData();
+			this._refreshFoodOrdersData();
+		},
+
+		_refreshEquipmentOrdersData: function() {
+			// console.log("tripage-reservation-summary._refreshEquipmentOrderData");
+			this.$.equipmentOrders.refresh().then(function() {
+			// 	console.log("tripage-reservation-summary.equipmentOrders.data", this.$.equipmentOrders.data);
+			// 	console.log("tripage-reservation-summary.equipmentOrders", this.equipmentOrders);
+			}.bind(this));
+		},
+
+		_refreshFoodOrdersData: function() {
+			// console.log("tripage-reservation-summary._refreshFoodOrderData");
+			this.$.foodOrders.refresh().then(function() {
+			// 	console.log("tripage-reservation-summary.foodOrders.data", this.$.foodOrders.data);
+			// 	console.log("tripage-reservation-summary.foodOrders", this.foodOrders);
+			}.bind(this));
+		},
+
+		_handleNavigateInstructions: function(e) {
+			this.fire("navigate-summary-instructions");
+		},
+
+		// override
+		_pageAttached : function() {
+			// console.log("tripage-reservation-summary._pageAttached");
+
+			if (!this._isPageActive)
+				return;
+
+			this._refreshReservationData();
+
+			this._showMissingSubjectMessage = false;
+
+			this.$$("#subjectField").focus();
+		},
+	});
+</script>

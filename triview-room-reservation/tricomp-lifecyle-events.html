@@ -1,0 +1,559 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<link rel="import" href="../triplat-debug/triplat-debug.html">
+
+<link rel="import" href="../triplat-date-utilities/triplat-date-utilities.html">
+
+<link rel="import" href="../iron-icons/iron-icons.html">
+<link rel="import" href="../iron-icons/communication-icons.html">
+<link rel="import" href="../iron-icons/hardware-icons.html">
+<link rel="import" href="../iron-icons/av-icons.html">
+<link rel="import" href="../iron-input/iron-input.html">
+<link rel="import" href="../paper-button/paper-button.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+
+<link rel="import" href="triplat-countdown.html">
+
+<dom-module id="tricomp-lifecyle-events">
+
+	<link rel="import" type="css" href="shared.css">
+
+	<style>
+
+		:host {
+			@apply(--layout-horizontal);
+		}
+
+		paper-button {
+			@apply(--layout-flex);
+		}
+
+		.buttons-container {
+			@apply(--layout-flex);
+			@apply(--layout-horizontal);
+		}
+		
+		#checkin {
+			background: var(--checkin-background), var(--ibm-green-50);
+			color: var(--checkin-color);
+			@apply(--checkin-mixin);
+		}
+
+		#checkout {
+			background: var(--checkout-background);
+			color: var(--checkout-color);
+			@apply(--checkout-mixin);
+		}
+
+		#earlyend {
+			background: var(--earlyend-background);
+			color: var(--earlyend-color);
+			@apply(--earlyend-mixin);
+		}
+
+		paper-button {
+			font-size: 16px;
+		}
+
+		triplat-countdown {
+			@apply(--layout-flex);
+			border: 2px solid var(--ibm-gray-10);
+			margin: 0 0.29em; /* matching paper-button margin */
+			--countdown-container: {
+				@apply(--layout-center-center);
+				padding: 0.7em 0.57em; /* matching paper-button padding */
+			};
+		}
+
+	</style>
+
+	<template>
+
+		<template is="dom-if" if="[[enableCountdown]]">
+			<div class="buttons-container">
+				<template is="dom-if" if="[[checkInRequired]]">
+					<template is="dom-if" if="[[_computeShowCheckIn(checkInRequired, checkInCountdown, checkInCountdownExpired, meetingEndCountdownExpired)]]">
+						<paper-button
+							id="checkin"
+							disabled$="[[!_isCheckInAvailable(checkInRequired, actualStart, checkInCountdownExpired)]]"
+							title="Check In" icon="icons:zoom-in" on-tap="_handleCheckIn" noink>Check In</paper-button>
+					</template>
+					<template is="dom-if" if="[[_computeShowCheckOut(checkInRequired, checkInCountdownExpired, meetingStartCountdownExpired, meetingEndCountdownExpired)]]">
+						<paper-button
+							id="checkout"
+							disabled$="[[!_isCheckOutAvailable(checkInRequired, actualStart, actualEnd, meetingStartCountdownExpired, meetingEndCountdownExpired)]]"
+							title="Check Out" icon="icons:zoom-out" on-tap="_handleCheckOut" noink>Check Out</paper-button>
+					</template>
+					<triplat-countdown
+						zname="checkin"
+						name="[[_computeCheckInName(plannedStart)]]"
+						label="Check In: "
+						hidden="{{!_computeShowCheckInCountdown(isStarted, checkInCountdownExpired, checkInRequired)}}"
+						zwait-until="[[_computeMeetingCheckInCountdownDeadline(checkInReminder)]]"
+						disabled="[[_computeCountdownDisabled(disabled, checkInCountdown)]]"
+						countdown="{{checkInCountdown}}"
+						deadline="[[_computeMeetingCheckInCountdownDeadline(checkInReminder)]]"
+						timezone="[[timezone]]"
+						is-expired="{{checkInCountdownExpired}}">
+					</triplat-countdown>
+					<triplat-countdown
+						zname="autocancel"
+						hidden
+						name="[[_computeAutoCancelName(plannedStart)]]"
+						disabled="[[_computeCountdownDisabled(disabled, autoCancelCountdown)]]"
+						countdown="{{autoCancelCountdown}}"
+						deadline="[[_computeMeetingAutoCancelCountdownDeadline(checkInAutoCancel)]]"
+						timezone="[[timezone]]"
+						is-expired="{{autoCancelCountdownExpired}}">
+					</triplat-countdown>
+				</template>
+				<template is="dom-if" if="[[!checkInRequired]]">
+					<template is="dom-if" if="[[_computeShowEarlyEnd(checkInRequired, meetingEndCountdown, meetingStartCountdownExpired, meetingEndCountdownExpired)]]">
+						<paper-button
+							id="earlyend"
+							disabled$="[[!_isEarlyEndAvailable(checkInRequired, actualStart, actualEnd, meetingStartCountdownExpired, meetingEndCountdownExpired)]]"
+							title="Early End" icon="icons:exit-to-app" on-tap="_handleEarlyEnd" noink>End Early</paper-button>
+					</template>
+				</template>
+				<triplat-countdown
+					zname="start"
+					name="[[_computeStartName(plannedStart)]]"
+					label="Starts in: "
+					hidden="{{!_computeShowStartCountdown(isStarted, meetingStartCountdownExpired, checkInRequired)}}"
+					zwait-until="[[_computeMeetingStartCountdownDeadline(plannedStart)]]"
+					disabled="[[_computeCountdownDisabled(disabled, meetingStartCountdown, checkInCountdownExpired)]]"
+					countdown="{{meetingStartCountdown}}"
+					deadline="[[_computeMeetingStartCountdownDeadline(plannedStart)]]"
+					timezone="[[timezone]]"
+					is-expired="{{meetingStartCountdownExpired}}">
+				</triplat-countdown>
+				<triplat-countdown
+					zname="end"
+					name="[[_computeEndName(plannedStart)]]"
+					hidden
+					disabled="[[_computeCountdownDisabled(disabled, meetingEndCountdown, meetingStartCountdownExpired)]]"
+					countdown="{{meetingEndCountdown}}"
+					deadline="[[_computeMeetingEndCountdownDeadline(actualStart, actualEnd, plannedEnd, meetingStartCountdownExpired)]]"
+					timezone="[[timezone]]"
+					is-expired="{{meetingEndCountdownExpired}}">
+				</triplat-countdown>
+			</div>
+		</template>
+
+	</template>
+</dom-module>
+<script>
+	Polymer({
+
+		is: "tricomp-lifecyle-events",
+		behaviors: [TriDateUtilities],
+
+		properties: {
+			disabled: {
+				type: Boolean,
+				value: false
+			},
+
+			enableCountdown: {
+				type: Boolean,
+				value: false
+			},
+
+            /**
+              * Is check-in required.  This will determine if the Check-In/Check-Out OR the Early-End
+              * buttons are dispalyed.
+              *
+              **/
+			checkInRequired: {
+				type: Boolean,
+			},
+
+            /**
+              * A date/time value (BEFORE the planned start time) used to determine an early check-in.
+              *
+              **/
+			checkInReminder: {
+				type: Date
+			},
+
+            /**
+              * A date/time value (AFTER the start time) used to determine when the meeting will be
+              * automatically cancelled.
+              *
+              **/
+			checkInAutoCancel: {
+				type: Date
+			},
+
+            /**
+              * A date/time value denotiing the planned start time of the meeting.  When this time has
+              * been reached, a "start" event will be fired.
+              *
+              **/
+			plannedStart: {
+				type: Date
+			},
+
+            /**
+              * A date/time value denotiing the planned end time of the meeting.  When this time has
+              * been reached, an "end" event will be fired.
+              *
+              **/
+			plannedEnd: {
+				type: Date
+			},
+
+            /**
+              * A date/time value denotiing the actual start time of the meeting.
+              *
+              **/
+			actualStart: {
+				type: Date
+			},
+
+			reservationInstance: {
+				type: Object
+			},
+
+            /**
+              * A date/time value denotiing the actual end time of the meeting.
+              *
+              **/
+			actualEnd: {
+				type: Date
+			},
+
+            /**
+              * A value denotiing the timezone of the user.
+              *
+              **/
+			timezone: {
+				type: String
+			},
+
+			// checkInCountdownExpired: Boolean,
+			// meetingStartCountdownExpired: Boolean,
+			// meetingEndCountdownExpired: Boolean,
+			// countdown: Boolean,
+
+			isStarted: {
+				type: Boolean,
+				notify: true,
+				value: false
+				// computed: '_computeIsStarted(checkInRequired, checkInCountdownExpired, meetingStartCountdownExpired, meetingEndCountdownExpired, countdown)'
+			}
+      	},
+
+		observers: [
+			"_computeEnableCountdown(disabled, plannedStart, plannedEnd, timezone, reservationInstance)",
+			"_start(meetingStartCountdownExpired)",
+			"_end(meetingEndCountdownExpired)",
+			"_autocancel(autoCancelCountdownExpired)",
+		],
+
+		listeners: {
+		},
+
+		_computeShowCheckInCountdown: function(isStarted, checkInCountdownExpired, checkInRequired) {
+			return checkInRequired && !isStarted && !checkInCountdownExpired;
+		},
+
+		_computeShowStartCountdown: function(isStarted, meetingStartCountdownExpired, checkInRequired) {
+			return Boolean(!checkInRequired && !isStarted && !meetingStartCountdownExpired);
+		},
+
+		_computeIsStarted: function(checkOutEarlyEndResult) {
+			// if (!this.isStarted) {
+				// if (checkOutEarlyEndResult) {
+					this.set('isStarted', checkOutEarlyEndResult);
+				// }
+			// }
+		},
+
+		// _computeIsStarted: function(checkInRequired, checkInCountdownExpired, meetingStartCountdownExpired, meetingEndCountdownExpired, countdown) {
+		// 	return this._computeShowCheckOut(checkInRequired, checkInCountdownExpired, meetingStartCountdownExpired, meetingEndCountdownExpired) 
+		// 			|| this._computeShowEarlyEnd(checkInRequired, countdown, meetingStartCountdownExpired, meetingEndCountdownExpired);
+		// },
+
+		_computeCheckInName: function(name) {
+			return name + " - Check In";
+		},
+
+		_computeAutoCancelName: function(name) {
+			return name + " - Auto Cancel";
+		},
+
+		_computeStartName: function(name) {
+			return name + " - Start";
+		},
+
+		_computeEndName: function(name) {
+			return name + " - End";
+		},
+
+		_computeEnableCountdown: function(disabled, plannedStart, plannedEnd, timezone, reservationInstance) {
+			// console.log("_computeEnableCountdown");
+			// console.log(disabled);
+			// console.log(plannedStart);
+			// console.log(plannedEnd);
+			// console.log(timezone);
+
+			if (!reservationInstance || Object.keys(reservationInstance).length === 0) {
+				console.log("new reservation - disabling countdown");
+				this.set("enableCountdown", false);
+				return false;
+			}
+
+			if (plannedStart) {
+				// var nowDT = new Date();
+				if (this._getDateString(new Date(plannedStart)) != this._getCurrentDateString()) {
+						console.log("reservation start time is not today - disabling countdown");
+						this.set("enableCountdown", false);
+						return false;
+				}
+				// starts in the next 24 hours logic
+				// var nowMS = new Date().getTime();
+				// var ONE_MINUTE = (1000 * 60);
+				// var ONE_HOUR = (ONE_MINUTE * 60);
+				// var ONE_DAY = (ONE_HOUR * 24);
+
+				// var plannedStartDT = plannedStart ? Date.parse(plannedStart) : null;
+				// if (plannedStartDT && nowMS <= plannedStartDT) {
+				// 	var waitPeriodMS = plannedStartDT-nowMS;
+				// 	if (waitPeriodMS > ONE_DAY) {
+				// 		console.log("reservation start time is beyond one day - disabling countdown");
+				// 		return false;
+				// 	}
+				// }
+			}
+
+			var value = Boolean(!disabled && plannedStart && plannedEnd && timezone);
+			this.set("enableCountdown", value);
+		},
+
+      	_computeShowCheckIn: function(checkInRequired, countdown, checkInCountdownExpired, meetingEndCountdownExpired) {
+			// console.log("_computeShowCheckIn");
+			// console.log(checkInRequired);
+			// console.log(countdown);
+			// console.log(checkInCountdownExpired);
+			// console.log(meetingEndCountdownExpired);
+
+			return checkInRequired && ((checkInCountdownExpired && !meetingEndCountdownExpired) || (countdown && countdown.total == 0));
+      	},
+
+      	_computeShowCheckOut: function(checkInRequired, checkInCountdownExpired, meetingStartCountdownExpired, meetingEndCountdownExpired) {
+			// console.log("_computeShowCheckOut");
+			// console.log(checkInCountdownExpired);
+			// console.log(meetingEndCountdownExpired);
+
+			var showCheckOut = checkInRequired && (checkInCountdownExpired && meetingStartCountdownExpired && !meetingEndCountdownExpired);
+			this._computeIsStarted(showCheckOut);
+
+			return showCheckOut;
+      	},
+
+      	_computeShowEarlyEnd: function(checkInRequired, countdown, meetingStartCountdownExpired, meetingEndCountdownExpired) {
+			// console.log("_computeShowEarlyEnd");
+			// console.log(countdown);
+			// console.log(meetingStartCountdownExpired);
+			// console.log(meetingEndCountdownExpired);
+
+			var showEarlyEnd = !checkInRequired && (meetingStartCountdownExpired && !meetingEndCountdownExpired);
+			this._computeIsStarted(showEarlyEnd);
+
+			return showEarlyEnd;
+      	},
+
+		_computeMeetingStartCountdownDeadline: function(plannedStart) {
+			// console.log("_computeMeetingStartCountdownDeadline");
+			// console.log(plannedStart);
+
+			var value = null;
+			if (plannedStart) {
+				value = plannedStart;
+			}
+
+			// console.log(value);
+
+			return value;
+		},
+
+		_computeMeetingEndCountdownDeadline: function(actualStart, actualEnd, plannedEnd, meetingStartCountdownExpired) {
+			// console.log("_computeMeetingEndCountdownDeadline");
+			// console.log(actualStart);
+			// console.log(actualEnd);
+			// console.log(plannedEnd);
+			// console.log(meetingStartCountdownExpired);
+
+			var value = null;
+			if (meetingStartCountdownExpired == undefined) {
+				if (actualStart && !actualEnd)
+					value = plannedEnd;
+			} else {
+				// since actualStart is updated via a future event workflow, 
+				// we can't assume that value is updated on the client when the timer
+				// is finished, so let's exclude it from the condition in the
+				// scenerio where we have a client-side timer
+
+				if (!actualEnd)
+					value = plannedEnd;
+			}
+
+			// console.log(value);
+
+			return value;
+		},
+
+		_computeMeetingCheckInCountdownDeadline: function(checkInReminder) {
+			// console.log("_computeMeetingCheckInCountdownDeadline");
+			// console.log(checkInReminder);
+
+			var value = null;
+			if (checkInReminder) {
+				value = checkInReminder;
+			}
+
+			// console.log(value);
+
+			return value;
+		},
+
+		_computeMeetingAutoCancelCountdownDeadline: function(checkInAutoCancel) {
+			// console.log("_computeMeetingAutoCancelCountdownDeadline");
+			// console.log(checkInAutoCancel);
+
+			var value = null;
+			if (checkInAutoCancel) {
+				value = checkInAutoCancel;
+			}
+
+			// console.log(value);
+
+			return value;
+		},
+
+		// disable the countdown if;
+		//
+		// 1) the component is disabled OR
+		// 2) there is a dependent countdown and it hasn't yet expired OR
+		// 3) we are outside of the countdown period
+		_computeCountdownDisabled: function(disabled, countdown, dependsOnExpired) {
+			// console.log("_computeCountdownDisabled");
+			// console.log(disabled);
+			// console.log(countdown);
+			// console.log(dependsOnExpired);
+
+			var rtn = (disabled || dependsOnExpired === false) || this._isOutsideCountdownPeriod(countdown);
+
+			// console.log(rtn);
+
+			return rtn;
+		},
+
+		// used to determine if a counter should be disabled based on the
+		// fact that it is far enough into the future for the UI to care about
+		// counting down.
+		_isOutsideCountdownPeriod: function(countdown) {
+			// console.log("_isOutsideCountdownPeriod");
+			// console.log(countdown);
+
+			return (countdown.total != -1 &&
+					countdown.total > 0 &&
+					countdown.days > 0 &&
+					countdown.hours > 1 &&
+					countdown.minutes > 0);
+		},
+
+		_isCheckInAvailable: function(checkInRequired, actualStart, checkInCountdownExpired) {
+			// console.log("_isCheckInAvailable");
+			// console.log(checkInRequired);
+			// console.log(actualStart);
+			// console.log(checkInCountdownExpired);
+
+			// TODO: consider auto-cancellation deadline
+
+			return checkInRequired && !actualStart && (checkInCountdownExpired || checkInCountdownExpired == undefined);
+		},
+
+		_isCheckOutAvailable: function(checkInRequired, actualStart, actualEnd, meetingStartCountdownExpired, meetingEndCountdownExpired) {
+			// console.log("_isCheckOutAvailable");
+			// console.log(checkInRequired);
+			// console.log(actualStart);
+			// console.log(actualEnd);
+			// console.log(meetingStartCountdownExpired);
+			// console.log(meetingEndCountdownExpired);
+
+			return checkInRequired && actualStart && !actualEnd && (!meetingEndCountdownExpired || meetingEndCountdownExpired == undefined) && (meetingStartCountdownExpired || meetingStartCountdownExpired == undefined);
+		},
+
+		_isEarlyEndAvailable: function(checkInRequired, actualStart, actualEnd, meetingStartCountdownExpired, meetingEndCountdownExpired) {
+			// console.log("_isEarlyEndAvailable");
+			// console.log(checkInRequired);
+			// console.log(actualStart);
+			// console.log(actualEnd);
+			// console.log(meetingStartCountdownExpired);
+			// console.log(meetingEndCountdownExpired);
+
+			var value = false;
+
+			if (!checkInRequired) {
+				if (meetingStartCountdownExpired == undefined) {
+					value = actualStart && !actualEnd;
+				} else {
+					// since actualStart is updated via a future event workflow, 
+					// we can't assume that value is updated on the client when the timer
+					// is finished, so let's exclude it from the condition in the
+					// scenerio where we have a client-side timer
+
+					value = !actualEnd && !meetingEndCountdownExpired && meetingStartCountdownExpired;
+				}
+			}
+
+			// console.log(value);
+
+			return value;
+		},
+
+		_start: function(meetingStartCountdownExpired) {
+			// console.log("_start");
+			// console.log(meetingStartCountdownExpired);
+			if (meetingStartCountdownExpired)
+				this.fire("start");
+		},
+
+		_end: function(meetingEndCountdownExpired) {
+			// console.log("_end");
+			// console.log(meetingEndCountdownExpired);
+			if (meetingEndCountdownExpired)
+				this.fire("end");
+		},
+
+		_autocancel: function(autoCancelCountdownExpired) {
+			// console.log("_end");
+			// console.log(autoCancelCountdownExpired);
+			if (autoCancelCountdownExpired)
+				this.fire("autocancel");
+		},
+
+		_handleCheckIn: function(e) {
+			var elem = e.currentTarget;
+			elem.disabled = true;
+
+			this.fire("checkin");
+		},
+
+		_handleCheckOut: function(e) {
+			var elem = e.currentTarget;
+			elem.disabled = true;
+
+			this.fire("checkout");
+		},
+
+		_handleEarlyEnd: function(e) {
+			var elem = e.currentTarget;
+			elem.disabled = true;
+
+			this.fire("earlyend");
+		},
+	});
+</script>

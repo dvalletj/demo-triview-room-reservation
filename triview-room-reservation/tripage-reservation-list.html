@@ -1,0 +1,465 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2015-2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+
+<link rel="import" href="../paper-icon-button/paper-icon-button.html">
+
+<link rel="import" href="../triplat-ds/triplat-ds.html">
+<link rel="import" href="../triplat-debug/triplat-debug.html">
+<link rel="import" href="../triplat-date-utilities/triplat-date-utilities.html">
+<link rel="import" href="../triplat-signout-button/triplat-signout-button.html">
+
+<link rel="import" href="../triplat-loading-indicator/triplat-loading-indicator.html">
+
+<link rel="import" href="room-reservation-behavior.html">
+<link rel="import" href="room-reservation-page-behavior.html">
+
+<link rel="import" href="tricomp-reservation-item-group.html">
+
+<dom-module id="tripage-reservation-list">
+
+	<link rel="import" type="css" href="shared.css">
+
+	<style>
+
+		:host {
+			@apply(--layout-vertical);
+		}
+
+		.page-main {
+			background-color: var(--tri-body-background-color);
+		}
+
+		.page-wrap {
+			@apply(--layout-flex);
+			@apply(--layout-scroll);
+			min-height: 0;
+			background-color: var(--tri-primary-content-background-color);
+		}
+
+		.list {
+			@apply(--layout-flex);
+			@apply(--layout-vertical);
+		}
+
+		.no-reservations-placeholder {
+			@apply(--layout-flex);
+			@apply(--layout-center-center);
+			@apply(--layout-vertical);
+			padding: 10px;
+		}
+		.no-reservations-placeholder > * {
+			text-align: center;
+			margin: 10px 0;
+		}
+		.no-reservations-placeholder-icon {
+			height: 32px;
+			width: 32px;
+		}
+
+		.list-header {
+			@apply(--layout-horizontal);
+			@apply(--layout-center);
+			@apply(--layout-self-center);
+			background-color: var(--ibm-blue-50);
+			max-width: var(--max-width-while-we-dont-support-desktop);
+			width: 100%;
+			height: 44px;
+			color: white;
+		}
+
+			.month {
+				@apply(--layout-flex);
+				@apply(--layout-horizontal);
+				@apply(--layout-center);
+				@apply(--layout-center-justified);
+				height: 100%;
+				font-size: 22px;
+			}
+
+			paper-icon-button {
+				width: 44px;
+				height: 44px;
+				padding: 10px;
+			}
+
+	</style>
+
+	<template>
+
+		<triplat-ds id="currentUser" name="currentUser" data="{{currentUser}}" loading="{{currentUserLoading}}"></triplat-ds>
+
+		<triplat-ds id="favoriteRooms" name="favoriteRooms" data="{{favoriteRooms}}" loading="{{favoriteRoomsLoading}}">
+			<triplat-ds-context name="currentUser" context-id="[[currentUser._id]]">
+			</triplat-ds-context>
+		</triplat-ds>
+
+		<triplat-ds id="reservationInstances" name="reservationInstances" data="{{reservationInstances}}" loading="{{reservationInstancesLoading}}" manual>
+		</triplat-ds>
+
+		<triplat-ds id="reservationsForPerson" name="reservationsForPerson" data="{{reservationsForPerson}}" loading="{{reservationsForPersonLoading}}">
+			<triplat-ds-instance instance-id="[[currentUser.person.data._id]]"></triplat-ds-instance>
+		</triplat-ds>
+		<!-- <triplat-debug message="list.reservationsForPerson" value="[[reservationsForPerson]]"></triplat-debug> -->
+
+		<triplat-ds id="myReservationEvents" name="myReservationEvents" data="{{myReservationEvents}}" loading="{{myReservationEventsLoading}}" manual>
+	    	<triplat-ds-context name="reservationsForPerson" context-id="{{currentUser.person.data._id}}">
+		    </triplat-ds-context>
+		    <triplat-query id="myReservationEventsQuery">
+		        <triplat-query-resource-calendar
+		            start-date="[[range.start]]"
+		            end-date="[[range.end]]">
+		        </triplat-query-resource-calendar>
+		    </triplat-query>
+		</triplat-ds>
+
+		<!-- <triplat-debug message="list.myReservationEvents" value="[[myReservationEvents]]"></triplat-debug> -->
+		<!-- <triplat-debug message="list.myReservationEventsLoading" value="[[myReservationEventsLoading]]"></triplat-debug> -->
+
+		<!-- <triplat-debug message="reservationsGroupByDate" value="[[reservationsGroupByDate]]"></triplat-debug> -->
+
+		<triplat-loading-indicator show="[[_isBusy(isBusy, myReservationEventsLoading, reservationInstancesLoading, reservationsForPersonLoading, currentUserLoading, favoriteRoomsLoading)]]"></triplat-loading-indicator>
+
+		<tricomp-page-header page-title="My Reservations"></tricomp-page-header>
+
+		<div class="list-header">
+			<paper-icon-button icon="icons:chevron-left" disabled="{{_previousMonthIsPast}}" on-tap="_goToPreviousMonth"></paper-icon-button>
+			<div class="month">{{selectedMonth}}&nbsp;{{selectedYear}}</div>
+			<paper-icon-button icon="icons:chevron-right" on-tap="_goToNextMonth"></paper-icon-button>
+			<!-- <paper-icon-button class="calendar-icon" icon="ibm:calendar"></paper-icon-button> -->
+		</div>
+		<div class="page-main">
+		<div class="page-wrap">
+			<template is="dom-if" if="[[reservationsGroupByDate.length]]">
+				<template is="dom-repeat" items="[[reservationsGroupByDate]]">
+					<tricomp-reservation-item-group 
+						group="{{item}}"
+						favorite-rooms="[[favoriteRooms]]">
+					</tricomp-reservation-item-group>
+				</template>
+			</template>
+			<template is="dom-if" if="[[!reservationsGroupByDate.length]]">
+				<div class="no-reservations-placeholder">
+					<iron-icon class="no-reservations-placeholder-icon" icon="ibm:status-info" info></iron-icon>
+					<div>You don't have any reservations for this month.</div>
+					<div>To create a reservation, tap the "New" button.</div>
+				</div>
+			</template>
+		</div>
+		</div>
+		
+		<tricomp-page-toolbar>
+			<tricomp-page-toolbar-button label="Refresh" icon="ibm:refresh-redo" on-tap="_handleRefresh"></tricomp-page-toolbar-button>
+			<tricomp-page-toolbar-button label="New" icon="ibm:add-new" on-tap="_handleNewReservation"></tricomp-page-toolbar-button>
+		</tricomp-page-toolbar>
+
+	</template>
+</dom-module>
+<script>
+	Polymer({
+
+		is: "tripage-reservation-list",
+		behaviors: [RoomReservationBehavior, RoomReservationPageBehavior, TriDateUtilities],
+
+		properties: {
+			reservationsGroupByDate: Array,
+
+			selectedMonth: String,
+			selectedYear: Number,
+
+			selectedISOStartDT: {
+				type: String,
+				notify: false
+			},
+
+			selectedISOEndDT: {
+				type: String,
+				notify: false
+			},
+
+			_previousMonthIsPast: {
+				type: Boolean,
+				value: true
+			},
+      	},
+
+		listeners: {
+		},
+
+		observers: [
+			'_handleEvents(myReservationEvents, currentUser._TimeZoneId)',
+			'_setInitialYearMonth(currentUser._TimeZoneId)'
+		],
+
+		_goToNextMonth: function() {
+			this._setSelectedMonthYear(1, this.currentUser._TimeZoneId);
+		},
+
+		_goToPreviousMonth: function() {
+			this._setSelectedMonthYear(-1, this.currentUser._TimeZoneId);
+		},
+
+		_setSelectedMonthYear: function(monthInterval, timezone) {
+			// moment.tz.setDefault(timezone);
+			if (this.selectedISOStartDT && this.selectedISOEndDT) {
+				var startMo = moment.tz(this.selectedISOStartDT, timezone);
+				var endMo = moment.tz(this.selectedISOEndDT, timezone);
+
+				// can I just use add(-1) for previous?
+				if (monthInterval > 0) {
+					startMo = moment(startMo).add(monthInterval, "M");
+					endMo = moment(endMo).add(monthInterval, "M");
+				} else {
+					monthInterval = -monthInterval;
+					startMo = moment(startMo).subtract(monthInterval, "M");
+					endMo = moment(endMo).subtract(monthInterval, "M");
+				}
+
+				this._computePreviousMonthIsPast(startMo);
+
+				var monthName = moment.tz(startMo, timezone).format("MMMM");
+				var year = moment.tz(startMo, timezone).format("YYYY");
+				this.set('selectedMonth', monthName);
+				this.set('selectedYear', year);
+
+				var startISO = startMo.format("YYYY-MM-DDTHH:mm:ss.SSSZ");
+				// var startISO = this.normalizeToTimezone(startISOpreTZ, timezone);
+
+				var endISO = endMo.format("YYYY-MM-DDTHH:mm:ss.SSSZ");
+				// var endISO = this.normalizeToTimezone(endISOpreTZ, timezone);
+
+				this._setRange(startISO, endISO);
+			}
+		},
+
+		_computePreviousMonthIsPast: function(startMo) {
+			var tempPrevMonth = startMo.clone();
+			tempPrevMonth = tempPrevMonth.subtract(1, "M");
+			if (tempPrevMonth.isBefore(moment(), 'month')) {
+				this.set('_previousMonthIsPast', true);
+			} else {
+				this.set('_previousMonthIsPast', false);
+			}
+		},
+
+		_setInitialYearMonth: function(timezone) {
+			// moment.tz.setDefault(timezone);
+			var mo = moment();
+			// mo.locale("en");
+
+			var monthName = moment.tz(mo, timezone).format("MMMM");
+			var year = moment.tz(mo, timezone).format("YYYY");
+			this.set('selectedMonth', monthName);
+			this.set('selectedYear', year);
+			
+			var startMo = mo.clone();
+			startMo = startMo.set({'date': 1, 'hour': 0, 'minute': 0, 'second': 0, 'millisecond': 0});
+			var startISOpreTZ = startMo.format("YYYY-MM-DDTHH:mm:ss.SSSZ");
+			var startISO = this.normalizeToTimezone(startISOpreTZ, timezone);
+
+			var endMo = startMo.clone();
+			endMo = endMo.add(1, "M");
+			var endISOpreTZ = endMo.format("YYYY-MM-DDTHH:mm:ss.SSSZ");
+			var endISO = this.normalizeToTimezone(endISOpreTZ, timezone);
+
+			this._setRange(startISO, endISO);
+		},
+
+		_sortEvents: function(events, timezone) {
+			// console.log("BEFORE SORT", myReservationEvents);
+
+			events.sort(function(a, b) {
+				var aMo = moment(a._Start_Datetime).tz(timezone);
+				var bMo = moment(b._Start_Datetime).tz(timezone);
+
+				if (aMo._d > bMo._d) {
+					return 1
+				} else if (aMo._d < bMo._d) {
+					return -1;
+				} else {
+					return 0;
+				}
+			});
+
+			// console.log("AFTER SORT", myReservationEvents);
+		},
+
+		_bindMatchingEventInstance: function(reservationInstances, event) {
+			var rdSpecId = this._getEventId(event);
+
+			for (var i = 0; i < reservationInstances.length; i++) {
+				var reservationInstance = reservationInstances[i];
+
+				// match-up the instace based on the Reservation Definition specId and the StartDateTime of the event
+				if (reservationInstance._rdSpecId == rdSpecId && reservationInstance.startDateTime == event._Start_Datetime) {
+					event.reservationInstance = reservationInstance;
+					break;
+				}
+			}
+		},
+
+      	_getEventId: function(event) {
+      		if (!event._Event_Id) {
+      			return event._Master_Recurring_Event_Id;
+      		}
+
+  			return event._Event_Id;
+      	},
+
+		_handleEvents: function(events, timezone) {
+			// console.log("tripage-reservation-list._handleEvents");
+			// console.log(events);
+			// console.log(timezone);
+
+			var reservationDateGroups = [];
+
+			if (events && events.length > 0 && timezone) {
+
+				this.$.reservationInstances.refresh().then(function() {
+					var reservationInstances = this.$.reservationInstances.data;
+					// console.log('reservationInstances', reservationInstances);
+
+					this._sortEvents(events, timezone);
+
+					var tempReservationDateGroup = [];
+					var tempReservationStartMo = null;
+					var nowMo = moment().tz(timezone);
+					for (var i = 0; i < events.length; i++) {
+						var reservation = events[i];
+
+						// preserve the Start Time before it has been timezone-converted
+						reservation._Orig_Start_Datetime = reservation._Start_Datetime;
+						var reservationStartMo = moment(reservation._Start_Datetime).tz(timezone);
+
+						// preserve the End Time before it has been timezone-converted
+						reservation._Orig_End_Datetime = reservation._End_Datetime;					
+						var reservationEndMo = moment(reservation._End_Datetime).tz(timezone);
+
+						// if we are already beyond the end time of the reservation, discard it
+						if (reservationEndMo.isBefore(nowMo, "second")) {
+							continue;
+						}
+
+						// only bind instances for today
+						if (this._isToday(nowMo, reservationStartMo, timezone) || this._isToday(nowMo, reservationEndMo, timezone)) {
+							this._bindMatchingEventInstance(reservationInstances, reservation);
+
+							// if there is a bound instance, discard this event if the meeting has been checked-out/ended, or cancelled
+							if (reservation.reservationInstance && (reservation.reservationInstance.actualEnd || reservation.reservationInstance.cancellationDateTime)) {
+								continue;
+							}
+						}
+
+						if (!tempReservationStartMo) {
+							if (reservationStartMo.isBefore(nowMo, "day") ) {
+								tempReservationStartMo = nowMo;
+							} else {
+								tempReservationStartMo = reservationStartMo;
+							}
+						}
+
+						// ACM FIXME: Use triplat-date-utilities function (Yong enh)
+						if (reservationStartMo.isSame(tempReservationStartMo, "day") || reservationStartMo.isBefore(tempReservationStartMo, "day")) {
+							tempReservationDateGroup.push(reservation);
+						} else {
+							reservationDateGroups.push(tempReservationDateGroup);
+							tempReservationDateGroup = [];
+							tempReservationStartMo = reservationStartMo;
+							tempReservationDateGroup.push(reservation);
+						}
+
+						if (i == events.length - 1) {
+							reservationDateGroups.push(tempReservationDateGroup);
+						}
+					}
+
+					this._resetReservationDateGroups(reservationDateGroups);
+				}.bind(this));
+			} else {
+				this._resetReservationDateGroups(reservationDateGroups);
+			}
+		},
+
+		_resetReservationDateGroups(reservationDateGroups) {
+			this.debounce('_resetReservationGroups', function () {
+				this.set("reservationsGroupByDate", null);
+				this.async(function() {
+					this.set("reservationsGroupByDate", reservationDateGroups);
+				});
+			});
+		},
+
+		_isToday: function(todayMo, datetimeMo, timezone) {
+			if (!todayMo) {
+				todayMo = moment().tz(timezone);
+			}
+
+			return datetimeMo.isSame(todayMo, 'day');
+		},
+
+		_isBusy: function(isBusy, myReservationEventsLoading, reservationInstancesLoading, reservationsForPersonLoading, currentUserLoading, favoriteRoomsLoading) {
+			// console.log("tripage-reservation-list._isBusy");
+			return isBusy || myReservationEventsLoading || reservationInstancesLoading || reservationsForPersonLoading || currentUserLoading || favoriteRoomsLoading;
+		},
+
+		_handleRefresh: function(e) {
+			this.fire("refresh-reservation-list");
+		},
+
+		_handleNewReservation: function(e) {
+			this.fire("navigate-reservation-new", e);
+		},
+
+		_refreshReservationList: function() {
+			// console.log("tripage-reservation-list._refreshReservationList");
+			if (!this._isPageActive)
+				return;
+
+			this.debounce('_refreshReservationList', function () {
+				if (this.$.myReservationEvents) {
+					this.$.myReservationEvents.refresh();
+				}
+		    });
+		},
+
+		// _onNavigateTo: function(params) {
+		// 	console.log("tripage-reservation-list._onNavigateTo");
+
+		// 	if (params == true) {
+		// 		this._registerAvailableDs(params);
+		// 	} else {
+		// 		this._setPageActive(true);
+		// 		this._triggerPageAttached(params);
+		// 	}
+		// },
+
+		created: function() {
+			//  Yong will also fix this
+			moment.locale("en");			
+		},
+
+		// override
+		_pageAttached : function() {
+			// console.log("tripage-reservation-list._pageAttached");
+
+			//  Yong will also fix this
+			// moment.locale("en");
+
+			// this._setInitialYearMonth(this.currentUser._TimeZoneId);
+		},
+
+		_setRange: function(start, end) {
+			var range = new Object();
+
+			this.set('selectedISOStartDT', start);
+			this.set('selectedISOEndDT', end);
+
+			range.start = this.selectedISOStartDT;
+			range.end = this.selectedISOEndDT;
+
+			var oldRange = this.range;
+
+			this.set("range", range);
+		},
+	});
+</script>

@@ -1,0 +1,247 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<link rel="import" href="../triplat-datetime-picker/triplat-datetime-picker.html">
+
+<link rel="import" href="room-reservation-behavior.html">
+<link rel="import" href="room-reservation-page-behavior.html">
+<link rel="import" href="tricomp-alert-message.html">
+
+<dom-module id="tripage-food-orders-summary">
+
+	<link rel="import" type="css" href="shared.css">
+
+	<style>
+
+		:host {
+			@apply(--layout-vertical);
+		}
+
+		.empty-data-message {
+			@apply(--layout-flex);
+		}
+		.empty-data-message > * {
+			margin: 10px 0;
+		}
+		.empty-data-message-icon {
+			height: 32px;
+			width: 32px;
+		}
+
+		.hold-time-message {
+			margin-bottom: 1px;
+		}
+
+		.order-item {
+			@apply(--layout-vertical);
+			flex-shrink: 0;
+		}
+		.order-header {
+			@apply(--layout-horizontal);
+			@apply(--layout-center);
+			background-color: var(--ibm-teal-40);
+			color: white;
+			font-size: 18px;
+			padding: 10px;
+		}
+		.order-title {
+			@apply(--layout-flex);
+		}
+		.order-cost {
+			font-weight: bold;
+		}
+		.order-body {
+			@apply(--layout-vertical);
+			padding: 10px 0;
+		}
+		.order-body-upper {
+			@apply(--layout-horizontal);
+		}
+		.order-drill {
+			@apply(--layout-vertical);
+			@apply(--layout-center-center);
+			flex-shrink: 0;
+			padding-left: 10px;
+		}
+		.order-info {
+			@apply(--layout-flex);
+			@apply(--layout-vertical);
+			@apply(--layout-center-justified);
+			padding-left: 10px;
+		}
+		.order-datetime-picker {
+			--triplat-date-picker-width: 100%;
+		}
+		.order-name {
+			font-size: 22px;
+			font-weight: 500;
+		}
+		.order-actions {
+			@apply(--layout-horizontal);
+			@apply(--layout-center-center);
+			padding: 10px 0;
+		}
+
+		.list {
+			@apply(--layout-vertical);
+			@apply(--layout-flex);
+		}
+
+	</style>
+
+	<template>
+
+		<!-- <tricore-url raw-url="/getCompanyFile.jsp?fileLoc=" bind-url="{{imgUrl}}"></tricore-url> -->
+
+		<!-- <triplat-debug message="tripage-food-orders-summary._orderId" value="{{_orderId}}"></triplat-debug> -->
+		<!-- <triplat-debug message="tripage-food-orders-summary.orderId" value="{{orderId}}"></triplat-debug> -->
+		<!-- <triplat-debug message="tripage-food-orders-summary.resourceId" value="{{resourceId}}"></triplat-debug> -->
+		<!-- <triplat-debug message="tripage-food-orders-summary.pageContextId" value="{{pageContextId}}"></triplat-debug> -->
+
+		<triplat-loading-indicator show="[[_pageLoading]]"></triplat-loading-indicator>
+
+		<triplat-ds id="reservationLocation" name="reservationLocations" data="{{_reservationLocation}}" loading="{{_reservationLocationsLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"></triplat-ds-context>
+			<triplat-ds-instance instance-id="[[resourceId]]"></triplat-ds-instance>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-food-orders-summary.reservationLocation" value="{{_reservationLocation}}"></triplat-debug> -->
+
+		<!-- <triplat-ds id="foodOrders" name="foodOrders" data="{{_foodOrders}}" loading="{{_foodOrdersLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"></triplat-ds-context>
+			<triplat-ds-context name="reservationLocations" context-id="[[resourceId]]"></triplat-ds-context>
+		</triplat-ds> -->
+		<triplat-ds id="foodOrders" name="foodOrders" filtered-data="{{_foodOrders}}" loading="{{_foodOrdersLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"></triplat-ds-context>
+			<triplat-query>
+				<triplat-query-filter name="resourceId" operator="equals" value="[[resourceId]]"></triplat-query-filter>
+			</triplat-query>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-food-orders-summary.foodOrders" value="{{_foodOrders}}"></triplat-debug> -->
+
+		<triplat-ds id="currentUser" name="currentUser" data="{{currentUser}}"></triplat-ds>
+
+		<tricomp-page-header page-title="[[_reservationLocation.room.value]]" show-back-button on-back-tap="_handleBackTap"></tricomp-page-header>
+
+		<div class="page-main">
+		<div class="page-wrap">
+		
+			<tricomp-alert-message danger icon="ibm:clock-time" id="holdTimeMessage" class="hold-time-message" show$="[[_reservationLocation.holdTimeDeadline]]" show-tooltip-indicator-icon>
+				<span hidden$="[[holdTimeExpired]]">Hold expires in</span>
+				<triplat-countdown class="hold-time-countdown"
+					name="booking-expiration"
+					deadline="[[_reservationLocation.holdTimeDeadline]]"
+					expired-text="Hold time is expired."
+					timezone="[[currentUser._TimeZoneId]]"
+					is-expired="{{holdTimeExpired}}">
+				</triplat-countdown>
+			</tricomp-alert-message>
+			<paper-tooltip for="holdTimeMessage" position="top" offset="5" animation-delay="100" fit-to-visible-bounds>When the hold time on this room expires, all added food and equipment are not saved, and the room is removed for this reservation.</paper-tooltip>
+
+			<div class="list" hidden$="[[!_foodOrders.length]]">
+				<template id="foodOrderTemplate" is="dom-repeat" items="[[_foodOrders]]">
+					<div class="order-item">
+						<div class="order-header">
+							<div class="order-title">Food Order [[item.orderNum]]</div>
+							<div class="order-cost"></div>
+						</div>
+						<div class="order-body">
+							<div class="order-body-upper">
+								<div class="order-info">
+									<div class="order-name" hidden$="[[!item.name]]">[[item.name]]</div>
+									<triplat-datetime-picker 
+										class="order-datetime-picker" 
+										hidden$="[[!item.requestedDateTime]]" 
+										label="Delivery Time" 
+										value="{{item.requestedDateTime}}" 
+										display-format="[[currentUser._DateTimeFormat]]"
+										time-zone="[[currentUser._TimeZoneId]]"
+										readonly></triplat-datetime-picker>
+								</div>
+								<div class="order-drill">
+									<paper-icon-button primary on-tap="_handleOpenFoodOrderTap" icon="icons:chevron-right"></paper-icon-button>
+								</div>
+							</div>
+							<div class="order-actions">
+								<paper-button danger-outline noink on-tap="_handleDeleteFoodOrderTap">Delete</paper-button>
+							</div>
+						</div>
+					</div>
+				</template>
+			</div>
+
+			<template is="dom-if" if="[[!_foodOrders.length]]">
+				<div class="empty-data-message">
+					<iron-icon class="empty-data-message-icon" icon="ibm:status-info" info hidden$="[[_pageLoading]]"></iron-icon>
+					<div hidden$="[[_pageLoading]]">You don't have any food orders for this room reservation.</div>
+					<div hidden$="[[_pageLoading]]">To add a food order, tap the "Add" button.</div>
+				</div>
+			</template>
+
+		</div>
+		</div>
+
+		<tricomp-page-toolbar>
+			<tricomp-page-toolbar-button label="Add" icon="ibm:add-new" on-tap="_handleAddFoodOrderTap"></tricomp-page-toolbar-button>
+		</tricomp-page-toolbar>
+
+	</template>
+</dom-module>
+<script>
+	Polymer({
+
+		is: "tripage-food-orders-summary",
+		behaviors: [RoomReservationBehavior, RoomReservationPageBehavior],
+
+		properties: {
+			resourceId: {
+				type: String,
+				value: "-1"
+			},
+			_pageLoading: {
+				type: Boolean,
+				computed: "_isBusy(isBusy, _reservationLocationsLoading, _foodOrdersLoading)"
+			},
+		},
+
+		listeners: {
+		},
+
+		_handleAddFoodOrderTap: function(e) {
+			var resourceId = this.resourceId;
+			if (resourceId) this.fire("navigate-food-order-add", { 'resourceId' : resourceId, 'orderId' : "-1" });
+		},
+
+		_handleBackTap: function(e) {
+			this.fire("navigate-summary-page-back");
+		},
+
+		_handleDeleteFoodOrderTap: function(e) {
+			var resourceId = this.resourceId;
+			var foodOrder = this.$.foodOrderTemplate.itemForElement(e.currentTarget);
+			var orderId = foodOrder._id;
+			if (resourceId && orderId) this.fire("action-food-order-cancel", { 'resourceId' : resourceId, 'orderId' : orderId });
+		},
+
+		_handleOpenFoodOrderTap: function(e) {
+			var resourceId = this.resourceId;
+			var foodOrder = this.$.foodOrderTemplate.itemForElement(e.currentTarget);
+			var orderId = foodOrder._id;
+			if (resourceId && orderId) this.fire("navigate-food-order", { 'resourceId' : resourceId, 'orderId' : orderId });
+		},
+
+		// override
+		_isBusy: function(isBusy, reservationLocationsLoading, foodOrdersLoading) {
+			return isBusy || reservationLocationsLoading || foodOrdersLoading;
+		},
+
+		// override
+		_pageAttached : function() {
+			// console.log("tripage-reservation-summary._pageAttached");
+
+			if (!this._isPageActive)
+				return;
+
+			this.$.foodOrders.refresh().then(function() {
+			}.bind(this));
+		},
+	});
+</script>

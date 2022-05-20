@@ -1,0 +1,355 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<script>
+    RoomReservationBehavior = {
+
+    	properties: {
+			isBusy: {
+				type: Boolean,
+				notify: true,
+				value: false
+			},
+		},
+
+		_computeArrayItem: function(change, index, path) {
+			return this.get(path, change.base[index])
+		},
+
+		_computeWorkspaceDayOption(startDate, timezone) {
+			// console.log("_computeWorkspaceDayOption");
+			// console.log(startDate);
+			// console.log(timezone);
+
+			var todayMo = moment().tz(timezone).set({'hour': 0, 'minute': 0, 'second': 0, 'millisecond': 0});
+			var startMo = moment(startDate).tz(timezone).set({'hour': 0, 'minute': 0, 'second': 0, 'millisecond': 0});
+
+			if (todayMo.isSame(startMo)) {
+				return "today";
+			} else {
+				return "tomorrow";
+			}
+		},
+
+		_computeWorkspaceTimeOption(startDate, endDate, timezone) {
+			// console.log("_computeWorkspaceTimeOption");
+			// console.log(startDate);
+			// console.log(endDate);
+			// console.log(timezone);
+
+			var startMo = moment(startDate).tz(timezone);
+			var endMo = moment(endDate).tz(timezone);
+
+			var todayStartMo = moment(startMo).tz(timezone).set({'hour': 8, 'minute': 0, 'second': 0, 'millisecond': 0});
+			var todayNoonMo = moment(startMo).tz(timezone).set({'hour': 13, 'minute': 0, 'second': 0, 'millisecond': 0});
+			var todayEndMo = moment(startMo).tz(timezone).set({'hour': 18, 'minute': 0, 'second': 0, 'millisecond': 0});
+
+			if (todayStartMo.isSame(startMo) && todayEndMo.isSame(endMo)) {
+				return "all-day";
+			} else if (todayNoonMo.isSame(startMo)) {
+				return "pm";
+			} else {
+				return "am";
+			}
+		},
+
+		_isHideMeetingTimeOptions: function(isOutlookEmbedded, roomType) {
+			// console.log("_isHideMeetingTimeOptions");
+			return isOutlookEmbedded || !this._isRoomTypeMeetingSpace(roomType);
+		},
+
+		_isHideWorkspaceTimeOptions: function(isOutlookEmbedded, roomType) {
+			// console.log("_isHideWorkspaceTimeOptions");
+			return isOutlookEmbedded || !this._isRoomTypeWorkspace(roomType);
+		},
+
+		_isRoomTypeMeetingSpace: function(roomType) {
+			// console.log("tripage-room-criteria._isRoomTypeMeetingSpace");
+			// console.log(roomType);
+			return roomType && roomType.value == "Meeting Space";
+		},
+
+		_isRoomTypeWorkspace: function(roomType) {
+			// console.log("tripage-room-criteria._isRoomTypeMeetingSpace");
+			// console.log(roomType);
+			return roomType && roomType.value == "Workspace";
+		},
+
+		_isStartAndEndTimesValid: function(start, end) {
+			var mo = moment();
+			var startMo = moment(start);
+			var endMo = moment(end);
+			return startMo.isBefore(endMo);
+		},
+
+		_isAllDayStartAndEndDatesValid: function(start, end) {
+			var mo = moment();
+			var startMo = moment(start);
+			var endMo = moment(end);
+			return startMo.isBefore(endMo, 'day') || startMo.isSame(endMo, 'day');
+		},
+
+		_computeEmailAddressLink: function(email) {
+			return "mailto:" + email;
+		},
+
+		_computeTelephoneLink: function(phoneNumber) {
+			return "tel:" + phoneNumber;
+		},
+
+		_generateRandomIDValue: function() {
+			return "" + Math.random();
+		},
+
+		_isRoomServiceAvailable: function(value) {
+			// console.log("_isRoomServiceAvailable");
+			// console.log(value);
+
+			return value && (value == true || value == "Yes");
+		},
+
+      	_isAvailable: function(item) {
+      		return Boolean(item && item._availCount && item._availCount > 0);
+      	},
+
+		_isRecurring: function(item) {
+			return Boolean(item && item._maxOccurrenceCount && item._maxOccurrenceCount > 1);
+		},
+
+		_isNoEndRecurringCutoff: function(item, reservationManager, currentTime) {
+			if (item && reservationManager && currentTime) {
+				return this._isRecurring(item) && reservationManager.eventQueryEndDateTime == null && item.cutoffDuration > 0;
+			} else {
+				return false;
+			}
+		},
+
+		_isEndCutoff: function(item, reservationManager, currentTime, timezone, cutoffDateTime) {
+			if (item && reservationManager && currentTime) {
+				if (reservationManager.eventQueryEndDateTime && item.cutoffDuration && item.cutoffDuration > 0) {
+					var endMo = moment(reservationManager.eventQueryEndDateTime).tz(timezone);
+					// endMo.set({'hour': 0, 'minute': 0, 'second': 0, 'millisecond': 0});
+
+					var cutoffDateTimeMo = moment(cutoffDateTime).tz(timezone);
+					// cutoffDateTimeMo.set({'hour': 0, 'minute': 0, 'second': 0, 'millisecond': 0});
+
+					return endMo.isAfter(cutoffDateTimeMo, "day") || endMo.isSame(cutoffDateTimeMo, "day");
+				} else {
+					return false;
+				}
+			} else {
+				return false;
+			}
+		},
+
+		_isRecurringMeeting: function(reservationManager) {
+			return Boolean(reservationManager && reservationManager.recurrenceRule && reservationManager.recurrenceRule.length > 0);
+		},
+
+		_isAllowEditRecurrence: function(reservationManager, isOutlookEmbedded) {
+			return !this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager) && (reservationManager.reservationEditMode == "Occurrence" || reservationManager.reservationEditMode == "Series");
+		},
+
+		_isWaitListable: function(item) {
+			return !this._isAvailable(item) && !this._isRecurring(item);
+		},
+
+		_isOdd: function(index) {
+			return index % 2 == 1;
+		},
+
+		_randomYesNo: function(index) {
+			var rdm = Math.round(Math.random()) == 0 ? "Yes" : "No";
+			// console.log("_randomYesNo: " + rdm);
+			return rdm;
+		},
+
+		_randomTrueFalse: function(index) {
+			var rdm = Math.round(Math.random()) == 0;
+			// console.log("_randomTrueFalse: " + rdm);
+			return rdm;
+		},
+
+      	_computeRoomLoc: function(building, floor) {
+			// console.log("_computeRoomLoc");
+			// console.log(building);
+			// console.log(floor);
+      		return building + (floor ? " / " + floor : "");
+      	},
+
+      	_computeRoomGeo: function(city, state, country) {
+			// console.log("_computeRoomGeo");
+			// console.log(city);
+			// console.log(state);
+			// console.log(country);
+      		return (city ? city : "") + (state ? " / " + state : "") + (country ? " / " + country : "");
+      	},
+
+		_logExchangeResponse: function(exchangeResponse) {
+			// console.log("_logExchangeResponse");
+			// console.log(exchangeResponse);
+			// console.log(exchangeResponse.messageContent);
+			// console.log(exchangeResponse.responseCode);
+
+			if (exchangeResponse && exchangeResponse.responseCode) {
+				try {
+					var responseCode = Number(exchangeResponse.responseCode);
+					var message = exchangeResponse.messageContent;
+
+					// 200-Success, 300-Info, 400-Warning, 500-Error
+					if (responseCode == 300) {
+						console.log("*** INFO: " + message);
+					} else if (responseCode == 400) {
+						console.log("*** WARN: " + message);
+					} else if (responseCode == 500) {
+						console.log("*** ERROR: " + message);
+					}
+
+				} catch(err) {
+					console.log("*** ERROR: " + err.message);
+				}
+			}
+		},
+
+		_computeImageUrl: function(img, baseUrl) {
+			// console.log("_computeImageUrl");
+            if (!img) {
+                return "";
+            }
+
+            // var url = this.$.urlGen.getUrl("/getCompanyFile.jsp?fileLoc=" + img);
+            // console.log(url);
+            var url = baseUrl + img;
+            // console.log("url = " + url);
+
+            return url;
+        },
+
+		_setBusy: function() {
+			this.set("isBusy", true);
+		},
+
+		_clearBusy: function() {
+			this.set("isBusy", false);
+		},
+
+		_isBusy: function() {
+			return this.isBusy;
+		},
+
+		_handleNavigateSummary: function(e) {
+			this.fire("navigate-summary-page");
+		},
+
+		_handleNavigateList: function(e) {
+			this.fire("navigate-reservation-list");
+		},
+
+		_handleNavigateStart: function(e) {
+			this.fire("navigate-start", e);
+		},
+
+		_handleNavigateStartNew: function(e) {
+			this.fire("navigate-start-new", e);
+		},
+
+		_handleStartOver: function(e) {
+			this.fire("start-over", e);
+		},
+
+		_computeRecurrenceRuleDisplayLabel: function(reservationEditMode, recurrenceRuleLabel) {
+			var __dictionary__seriesDisplayLabel = "You are changing a series occurrence.";
+			if (reservationEditMode != "Occurrence" && reservationEditMode != "Series") return __dictionary__seriesDisplayLabel;
+			return recurrenceRuleLabel;
+		},
+
+		_showDiscardChanges: function(isOutlookEmbedded, reservationManager) {
+			// console.log("_showDiscardChanges");
+			return !this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager) && !isOutlookEmbedded && this._isExistingReservation(reservationManager);
+		},
+
+		_showAddAnotherRoom: function(isOutlookEmbedded, reservationManager) {
+			// console.log("_showAddAnotherRoom");
+			return !this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager);
+		},
+
+		_showSubmit: function(isOutlookEmbedded, reservationManager) {
+			// console.log("_showSubmit");
+			// return !isOutlookEmbedded && !this._isExistingReservation(reservationManager);
+			return !this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager) && !this._isExistingReservation(reservationManager);
+		},
+
+		_showSave: function(isOutlookEmbedded, reservationManager) {
+			// console.log("_showSave");
+			// return !isOutlookEmbedded && this._isExistingReservation(reservationManager);
+			return !this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager) && this._isExistingReservation(reservationManager);
+		},
+
+		_showDone: function(isOutlookEmbedded, reservationManager) {
+			// console.log("_showDone");
+			// return !this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager);
+			return true;
+		},
+
+		_showDelete: function(isOutlookEmbedded, reservationManager) {
+			// console.log("_showDelete");
+			// return !this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager) && !isOutlookEmbedded;
+			// return !this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager) && !isOutlookEmbedded && this._isExistingReservation(reservationManager);
+			return !this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager) && !isOutlookEmbedded;
+		},
+
+		_showList: function(isOutlookEmbedded) {
+			// console.log("_showList");
+			return !isOutlookEmbedded;
+		},
+
+		_showImage: function(applicationSettings) {
+			if (applicationSettings) return !applicationSettings.disableImages;
+			return false;
+		},
+
+		_positionDoneToolbarRight: function(isOutlookEmbedded, reservationManager) {
+			return !this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager);
+		},
+
+		_disableAllDayCheckbox: function(isOutlookEmbedded, reservationManager) {
+			return this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager) || this._isRecurringMeeting(reservationManager);
+		},
+
+		_readonlyStartEndDateTime: function(isOutlookEmbedded, reservationManager) {
+			return this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager) || this._isRecurringMeeting(reservationManager);
+		},
+
+		_readonlySubject: function(isOutlookEmbedded, reservationManager) {
+			return this._isReadOnlyOutlook(isOutlookEmbedded, reservationManager);
+		},
+
+		// determine if this is an outlook reservation being opened outside an outlook embedded scenario
+		_isOutsideOutlook: function(isOutlookEmbedded, reservationManager) {
+			// console.log("_isOutsideOutlook");
+			return (!isOutlookEmbedded && this._isOutlookMeeting(reservationManager));
+		},
+
+		// determine if this should be read-only due to the fact that
+		// this is an outlook meeting being opened outside of outlook
+		_isReadOnlyOutlook: function(isOutlookEmbedded, reservationManager) {
+			// console.log("_isReadOnlyOutlook");
+			var rtn = this._isOutsideOutlook(isOutlookEmbedded, reservationManager);
+			// console.log(rtn);
+			return rtn;
+		},
+
+		// determine if this should be read-only (like trying to edit from non-outlook embedded scenarios)
+		_isOutlookMeeting: function(reservationManager) {
+			// console.log("_isOutlookMeeting");
+			// console.log(reservationManager);
+
+			var rtn = reservationManager != null && (reservationManager.iCalUID != null && reservationManager.iCalUID.length > 0);
+			// console.log(rtn);
+			return rtn;
+		},
+
+		_isExistingReservation: function(reservationManager) {
+			return reservationManager != null && (reservationManager.reservation != null && reservationManager.reservation.id);
+		},
+    };
+</script>

@@ -1,0 +1,139 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2015-2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<!-- <link rel="import" href="../triblock-page-container-behavior/triblock-page-container-behavior.html"> -->
+
+<link rel="import" href="../iron-autogrow-textarea/iron-autogrow-textarea.html">
+<link rel="import" href="../triplat-icon/triplat-icon.html">
+<link rel="import" href="tricomp-page-toolbar.html">
+
+<link rel="import" href="room-reservation-page-behavior.html">
+
+<dom-module id="tripage-reservation-instructions">
+
+	<link rel="import" type="css" href="shared.css">
+
+	<style>
+
+		:host {
+			@apply(--layout-vertical);
+			flex-shrink: 0;
+		}
+
+		.instructions-label {
+			padding: 10px 0px 0px 10px;
+		}
+
+		.instructions-container {
+			@apply(--layout-horizontal);
+			@apply(--layout-flex);
+			padding: 0px 10px 10px 10px;
+		}
+
+		iron-autogrow-textarea {
+			@apply(--layout-flex);
+			@apply(--tri-font-family);
+			border-color: var(--ibm-blue-50);
+		}`
+
+
+
+	</style>
+
+	<template>
+
+		<triplat-ds id="reservationManager" name="reservationManager" data="{{reservationManager}}" loading="{{reservationManagerLoading}}">
+			<!-- <triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"> -->
+			<triplat-ds-context name="myReservationManagers" context-id="[[specId]]"></triplat-ds-context>
+		</triplat-ds>
+
+		<!-- <triplat-debug message="tripage-reservation-instructions.reservationManager" value="{{reservationManager}}"></triplat-debug>
+		<triplat-debug message="tripage-reservation-instructions.specId" value="{{specId}}"></triplat-debug> -->
+
+		<tricomp-page-header page-title="Reservation Summary" show-back-button on-back-tap="_handleBackTap"></tricomp-page-header>
+
+		<div class="page-main">
+			<div class="page-wrap">
+				<label class="instructions-label">Instructions</label>
+				<!-- <paper-textarea></paper-textarea> -->
+				<div class="instructions-container">
+					<iron-autogrow-textarea autofocus bind-value="{{instructions}}"></iron-autogrow-textarea>
+				</div>
+			</div>
+		</div>
+
+		<tricomp-page-toolbar>
+			<tricomp-page-toolbar-button label="Done" icon="ibm:success-confirmation" disabled="[[!_instructionsChanged]]" on-tap="_handleDoneTap"></tricomp-page-toolbar-button>
+		</tricomp-page-toolbar>
+
+	</template>
+</dom-module>
+<script>
+	Polymer({
+
+		is: "tripage-reservation-instructions",
+		behaviors: [RoomReservationPageBehavior],
+
+		properties: {
+			instructions: {
+				type: String,
+				observer: '_handleInternalInstructionsChanged'
+			},
+
+			_initialInstructions: String,
+
+			_instructionsChanged: {
+				type: Boolean,
+				value: false
+			},
+
+			specId: String
+		},
+
+		listeners: {
+		},
+
+		observers: [
+			'_handleInstructionsChanged(reservationManager.reservationInstructions)'
+		],
+
+		_handleInstructionsChanged: function(instructions) {
+			this.setInstructions(instructions);
+		},
+
+		_handleInternalInstructionsChanged: function(changedInstructions) {
+			// this.debounce("computeInstructionsChanged", function() {
+				this.set('_instructionsChanged', changedInstructions != this._initialInstructions);
+			// }, 300);
+		},
+
+		_handleBackTap: function() {
+			this.fire("navigate-instructions-summary-back");
+			this.$.reservationManager.data.reservationInstructions = this._initialInstructions;
+			this.setInstructions(this._initialInstructions);
+			this.set('instructions', this._initialInstructions);
+			this._reset();
+		}, 
+
+		_handleDoneTap: function() {
+			// this.fire("action-save", { "instructions" : this.instructions });
+			this.fire("navigate-instructions-summary-back");
+			this.$.reservationManager.data.reservationInstructions = this.instructions;
+			this.setInstructions(this.instructions);
+			this._reset();
+		},
+
+		setInstructions: function(instructions) {
+			if (instructions) {
+				this.set('_initialInstructions', instructions);
+				this.set('instructions', instructions);
+			} else {
+				this.set('_initialInstructions', "");
+			}
+		},
+
+		_reset: function() {
+			this.set('_instructionsChanged', false);
+			// this.set('instructions', null);
+		},
+	});
+</script>

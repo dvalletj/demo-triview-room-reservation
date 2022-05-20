@@ -1,0 +1,239 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<script>
+    OutlookBehavior = {
+
+    	properties: {
+			isOutlookEmbedded: {
+				type: Boolean,
+				value: false
+			},
+
+			outlookData: {
+				type: Object,
+				value: null,
+				observer: '_outlookDataChanged',
+			},
+
+			outlookDataObserver: {
+				type: Object,
+				value: null,
+			},
+
+			// this is the appointment ID
+			iCalUID: {
+				type: String,
+				value: null,
+			},
+
+			// this is effectively a session ID
+			userInterfaceID: {
+				type: String,
+				value: null,
+			},
+
+			exchangeAppointmentSpecId: {
+				type: String,
+				value: null,
+			},
+
+			oldOutlookData: Object,
+		},
+
+		observers: [
+			// "_outlookDataChanged(outlookData, reservationManager)",
+			"_outlookStartDateChanged(outlookData.startDate, reservationManager)",
+			"_outlookEndDateChanged(outlookData.endDate, reservationManager)",
+			"_outlookSubjectChanged(outlookData.subject, reservationManager)",
+			"_outlookAllDayChanged(outlookData.isAllDayEvent, reservationManager)",
+		],
+
+		listeners: {
+		},
+
+		_outlookDataChanged: function(value) {
+			// console.log("_outlookDataChanged");
+			// console.log(value);
+			if (!value)
+				return;
+
+			if (!this.outlookDataObserver) {
+				console.log("setting initial outlookDataObserver");
+
+				var outlookDataObserver = this._clone(value);
+				this.set("outlookDataObserver", outlookDataObserver);
+			}
+		},
+
+		_outlookStartDateChanged: function(startDate) {
+			// console.log("_outlookStartDateChanged");
+			if (!startDate)
+				return;
+
+			if (!this.reservationManager)
+				return;
+
+			// console.log(this.outlookDataObserver.startDate);
+			// console.log(startDate);
+
+			// if (this.reservationManager.reservationStartTime != startDate) {
+			// if (this.outlookDataObserver.startDate.getTime() != startDate.getTime()) {
+			if (this.outlookDataObserver.startDate != startDate) {
+				console.log("_outlookStartDateChanged");
+				console.log(startDate);
+				// console.log(typeof startDate);
+				// console.log(this.reservationManager.reservationStartTime);
+				// console.log(typeof this.reservationManager.reservationEndTime);
+				console.log(this.outlookDataObserver.startDate);
+
+				this.set("outlookDataObserver.startDate", startDate);
+
+				// this.reservationManager.reservationStartTime = startDate;
+				this.set("reservationManager.reservationStartTime", startDate);
+			}
+		},
+
+		_outlookEndDateChanged: function(endDate) {
+			// console.log("_outlookEndDateChanged");
+			if (!endDate)
+				return;
+
+			if (!this.reservationManager)
+				return;
+
+			// if (this.reservationManager.reservationEndTime != endDate) {
+			// if (this.outlookDataObserver.endDate.getTime() != endDate.getTime()) {
+			if (this.outlookDataObserver.endDate != endDate) {
+				console.log("_outlookEndDateChanged");
+				console.log(endDate);
+				// console.log(typeof endDate);
+				// console.log(this.reservationManager.reservationEndTime);
+				// console.log(typeof this.reservationManager.reservationEndTime);
+				console.log(this.outlookDataObserver.endDate);
+
+				this.set("outlookDataObserver.endDate", endDate);
+
+				// this.reservationManager.reservationEndTime = endDate;
+				this.set("reservationManager.reservationEndTime", endDate);
+			}
+		},
+
+		_outlookSubjectChanged: function(subject) {
+			// console.log("_outlookSubjectChanged");
+			if (!subject)
+				return;
+
+			if (!this.reservationManager)
+				return;
+
+			// if (this.reservationManager.reservationSubject != subject) {
+			if (this.outlookDataObserver.subject != subject) {
+				console.log("_outlookSubjectChanged");
+				console.log(subject);
+				// console.log(this.reservationManager.reservationSubject);
+				console.log(this.outlookDataObserver.subject);
+
+				this.set("outlookDataObserver.subject", subject);
+
+				// this.reservationManager.reservationSubject = subject;
+				this.set("reservationManager.reservationSubject", subject);
+			}
+		},
+
+		_outlookAllDayChanged: function(isAllDayEvent) {
+			// console.log("_outlookAllDayChanged");
+			if (!isAllDayEvent)
+				return;
+
+			if (!this.reservationManager)
+				return;
+
+			// if (this.reservationManager.reservationAllDay != isAllDayEvent) {
+			if (this.outlookDataObserver.isAllDayEvent != isAllDayEvent) {
+				console.log("_outlookAllDayChanged");
+				console.log(isAllDayEvent);
+				// console.log(this.reservationManager.reservationAllDay);
+				console.log(this.outlookDataObserver.isAllDayEvent);
+
+				this.set("outlookDataObserver.isAllDayEvent", isAllDayEvent);
+
+				// this.reservationManager.reservationAllDay = isAllDayEvent;
+				this.set("reservationManager.reservationAllDay", isAllDayEvent);
+			}
+		},
+
+		_getUserInterfaceID: function() {
+			// console.log("_getUserInterfaceID");
+			var returnValue = null;
+
+			if (this.isOutlookEmbedded) {
+				return this._getiCalUID();
+			}
+
+			if (this.userInterfaceID) {
+				returnValue = this.userInterfaceID;
+			} else {
+				if (this.isOutlookEmbedded) {
+					// let's use the appointment id for now
+					if (this.outlookDataObserver && this.outlookDataObserver.appointmentId) {
+						returnValue = this.outlookDataObserver.appointmentId;
+					} else {
+						console.log("*** generating a random userInterfaceID because there is no outlookDataObserver.appointmentId");
+						returnValue = this._generateRandomIDValue();
+					}
+				} else {
+					returnValue = this._generateRandomIDValue();
+				}
+			}
+
+			// console.log(returnValue);
+
+			return returnValue;
+		},
+
+		_getiCalUID: function() {
+			// console.log("_getiCalUID");
+			var returnValue = null;
+
+			if (this.isOutlookEmbedded) {
+				if (this.outlookDataObserver && this.outlookDataObserver.uid) {
+					returnValue = this.outlookDataObserver.uid;
+				} else {
+					console.log("*** generating a random iCalUID because there is no outlookDataObserver.uid");
+					returnValue = this._generateRandomIDValue();
+				}
+			} else {
+			}
+
+			// console.log(returnValue);
+
+			return returnValue;
+		},
+
+		_clone: function(obj) {
+			// console.log("*** _clone");
+			// console.log(obj);
+
+			if (obj === null || typeof(obj) !== 'object' || 'isActiveClone' in obj)
+				return obj;
+
+			if (obj instanceof Date)
+				// var temp = new obj.constructor(); //or new Date(obj);
+				var temp = new Date(obj);
+			else
+				var temp = obj.constructor();
+
+			for (var key in obj) {
+				if (Object.prototype.hasOwnProperty.call(obj, key)) {
+					obj['isActiveClone'] = null;
+					temp[key] = this._clone(obj[key]);
+					delete obj['isActiveClone'];
+				}
+			}
+
+			// console.log(temp);
+
+			return temp;
+		},
+    };
+</script>

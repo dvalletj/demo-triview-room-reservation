@@ -1,0 +1,102 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2015-2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<link rel="import" href="../triplat-ds/triplat-ds.html">
+<link rel="import" href="../triplat-debug/triplat-debug.html">
+<link rel="import" href="../triplat-date-utilities/triplat-date-utilities.html">
+
+<link rel="import" href="tricomp-reservation-item.html">
+
+<dom-module id="tricomp-reservation-item-group">
+	<style>
+		:host {
+			@apply(--layout-vertical);
+			flex-shrink: 0;
+		}
+
+		.header {
+			background-color: var(--ibm-gray-40);
+			color: white;
+			padding: 4px 7px 4px 7px;
+		}
+
+			.today {
+				background-color: var(--ibm-teal-40);
+			}
+
+			.date {
+				font-size: 35px;
+			}
+
+	</style>
+	<template>
+		<triplat-ds id="currentUser" name="currentUser" data="{{currentUser}}"></triplat-ds>
+
+		<!-- <triplat-debug message="tricomp-reservation-item-group.group" value="{{group}}"></triplat-debug> -->
+
+		<div class$="{{_computeHeaderClass(datetime, currentUser._TimeZoneId)}}">
+			<span class="date">{{date}}</span>
+			<span>{{day}}</span>
+		</div>
+		<template is="dom-repeat" items="{{group}}">
+			<tricomp-reservation-item
+				event-item="{{item}}"
+				favorite-rooms="[[favoriteRooms]]">
+			</tricomp-reservation-item>
+		</template>
+	</template>
+</dom-module>
+<script>
+	Polymer({
+		is: "tricomp-reservation-item-group",
+		behaviors: [TriDateUtilities],
+
+		properties: {
+			favoriteRooms: Array,
+			group: Array,
+			date: Number,
+			day: String,
+		},
+
+		observers: [
+			'_setDateAndDay(group, currentUser._TimeZoneId)',
+		],
+
+		_setDateAndDay: function(group, timezone) {
+			if (group && timezone) {
+				var reservation = group[0];
+				
+				var mo = moment().tz(timezone);
+				var startMo = moment(reservation._Start_Datetime).tz(timezone);
+
+				var resultMo = startMo;
+				if (startMo.isBefore(mo, 'day')) {
+					resultMo = mo;
+				}
+
+				this.set('datetime', resultMo.toDate());
+				this.set('day', resultMo.format("dddd"));
+				this.set('date', resultMo.format("DD"))
+			}
+		},
+
+		_computeHeaderClass: function(datetime, timezone) {
+			if (this._isSameDate(timezone, datetime)) {
+				return "header today";
+			} else {
+				return "header";
+			}
+		},
+
+		// ACM FIXME: Use triplat-date-utilities function (Yong enh)
+		_isSameDate: function(timezone, datetime1, datetime2) {
+			if (!datetime2) {
+				datetime2 = new Date();
+			}
+
+			var d1Mo = moment(datetime1).tz(timezone);
+			var d2Mo = moment(datetime2).tz(timezone);
+
+			return d1Mo.isSame(d2Mo, 'day');
+		}
+	});
+</script>

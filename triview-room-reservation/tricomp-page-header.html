@@ -1,0 +1,91 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<link rel="import" href="../paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../triplat-signout-button/triplat-signout.html">
+<link rel="import" href="../triplat-icon/ibm-icons.html">
+
+<dom-module id="tricomp-page-header">
+
+	<style>
+		:host {
+			@apply(--layout-horizontal);
+			@apply(--layout-center-center);
+			background-color: var(--tri-header-background-color);
+			border-bottom: 1px solid white;
+			flex-shrink: 0;
+		}
+
+		paper-icon-button {
+			width: 40px;
+			height: 40px;
+		}
+		paper-icon-button[invisible] {
+			visibility: hidden;
+		}
+
+		.back-button, .signout-button, .home-button {
+			color: white;
+		}
+
+		.title {
+			@apply(--layout-flex);
+			font-size: 18px;
+			font-weight: light;
+			text-align: center;
+			@apply(--paper-font-common-nowrap);
+			color: white;
+		}
+
+		.wrapper-while-we-dont-support-desktop {
+			@apply(--layout-horizontal);
+			@apply(--layout-center-center);
+			max-width: var(--max-width-while-we-dont-support-desktop);
+			width: 100%;
+		}
+	</style>
+
+	<template>
+
+		<div class="wrapper-while-we-dont-support-desktop">
+			<paper-icon-button title="Home" icon="ibm:home" class="home-button" invisible$="[[!showHomeButton]]" disabled="[[!showHomeButton]]" noink on-tap="_homeTap" hidden$="[[!showHomeButton]]"></paper-icon-button>
+			<paper-icon-button title="Back" icon="hardware:keyboard-arrow-left" class="back-button" invisible$="[[!showBackButton]]" disabled="[[!showBackButton]]" noink on-tap="_backTap" hidden$="[[showHomeButton]]"></paper-icon-button>
+			<div class="title">[[pageTitle]]</div>
+			<paper-icon-button title="Sign Out" icon="ibm:sign-out" class="signout-button" noink on-tap="_signoutTap"></paper-icon-button>
+		</div>
+
+		<triplat-signout id="signout"></triplat-signout>
+
+	</template>
+	
+</dom-module>
+<script>
+	Polymer({
+
+		is: "tricomp-page-header",
+
+		properties : {
+			showBackButton: {
+				type: Boolean,
+				value: false
+			},
+			showHomeButton: {
+				type: Boolean,
+				value: false
+			},
+			pageTitle: String
+		},
+
+		_homeTap: function() {
+			this.fire("home-tap");
+		},
+
+		_backTap: function() {
+			this.fire("back-tap");
+		},
+
+		_signoutTap: function() {
+			this.$.signout.signout();
+		}
+
+	});
+</script>

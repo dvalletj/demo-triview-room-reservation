@@ -1,0 +1,157 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<script>
+    RoomReservationPageBehavior = {
+
+    	properties: {
+			_isPageActive: {
+				type: Boolean,
+				value: false
+			},
+
+			specId: {
+				type: String,
+				value: null,
+			},
+
+			pageContextId: {
+				type: String,
+				value: null,
+			},
+
+			isOutlookEmbedded: {
+				type: Boolean,
+				value: false
+			},
+
+			_availableDs: {
+				type: Object,
+				value: {}
+			}
+		},
+
+		_setPageContextId: function(isActive, specId) {
+			// console.log("RoomReservationPageBehavior._setPageContextId");
+			// console.log(isActive);
+			// console.log(specId);
+
+			if (isActive) {
+				this.set("pageContextId", specId);
+			} else {
+				this.set("pageContextId", null);
+			}
+		},
+
+		_setPageActive: function(isActive) {
+			// console.log("RoomReservationPageBehavior._setPageActive");
+
+			this.set("_isPageActive", isActive);
+
+			this._setPageContextId(isActive, this.specId);
+		},
+
+		_onNavigateTo: function(params) {
+			// console.log("RoomReservationPageBehavior._onNavigateTo");
+
+			if (params == true) {
+				this._registerAvailableDs(params);
+			} else {
+				// console.log("skipping datasource registration since this page is not being lazy-loaded");
+				this._setPageActive(true);
+				this._triggerPageAttached(params);
+			}
+		},
+
+		_onNavigateAway: function() {
+			// console.log("RoomReservationPageBehavior._onNavigateAway");
+			this._setPageActive(false);
+
+			if (this._pageDetached) {
+				this._pageDetached();
+			}
+		},
+
+		_registerAvailableDs: function(params) {
+			// console.log("RoomReservationPageBehavior._registerAvailableDs");
+
+			var self = this;
+			self._availableDs = {};
+
+			var ds = Polymer.dom(this.root).querySelectorAll("triplat-ds");
+			if (ds.length > 0) {
+				var _dsToProcess = new Array();
+
+				// populate the array
+				ds.forEach(function(datasource) {
+					if (!datasource.manual) {
+						_dsToProcess.push(datasource);
+						if (datasource.data == undefined) {
+							self._availableDs[datasource.id] = false;
+						}
+					}
+				});
+
+				if (_dsToProcess.length > 0) {
+					console.log("processing " + _dsToProcess.length + " datasources...")
+					_dsToProcess.forEach(function(datasource) {
+						// add listeners for each data source in the array
+						if (datasource.data == undefined) {
+							datasource.addEventListener("ds-get-complete", function() {
+								console.log("refresh complete for datasource: " + this.name);
+								self._availableDs[this.id] = true;
+								self._verifyLoadComplete(params);
+								this.removeEventListener("ds-get-complete", arguments.callee);
+							});
+						}
+					});
+
+					this._setPageActive(true);
+
+					_dsToProcess.forEach(function(datasource) {
+						if (datasource._container) {
+							if (datasource.data == undefined) {
+								console.log("refreshing datasource: " + datasource.name);
+								datasource.refresh();
+
+								isRefreshWait = true;
+							} else {
+								console.log("notifying datasource: " + datasource.name);
+								datasource._setDsData(datasource.data);
+							}
+						}
+					});
+
+					if (isRefreshWait) {
+						return;
+					}
+				}
+			}
+
+			this._triggerPageAttached(params);
+		},
+
+		_verifyLoadComplete: function(params) {
+			var complete = false;
+			for (var property in this._availableDs) {
+    			if (this._availableDs.hasOwnProperty(property)) {
+    				complete = this._availableDs[property];
+    				if (!complete) {
+    					break;
+    				}
+	    		}
+			}
+			
+			if (complete) {
+				this._triggerPageAttached(params);
+			}
+		},
+
+		_triggerPageAttached: function(params) {
+			// console.log("RoomReservationPageBehavior._triggerPageAttached");
+
+			if (this._pageAttached) {
+				this._pageAttached(params);
+			}
+		},
+    };
+</script>

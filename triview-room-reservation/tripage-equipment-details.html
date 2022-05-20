@@ -1,0 +1,192 @@
+<!-- IBM Confidential‌ - OCO Source Materials‌ - (C) COPYRIGHT IBM CORP. 2016‌ - The source code for this program is not published or otherwise‌ divested of its trade secrets, irrespective of what has been‌ deposited with the U.S. Copyright Office. -->
+
+<link rel="import" href="../triplat-debug/triplat-debug.html">
+<link rel="import" href="../triplat-image/triplat-image.html">
+
+<link rel="import" href="../triplat-ds/triplat-ds.html">
+<link rel="import" href="../triplat-query/triplat-query.html">
+<link rel="import" href="../triplat-select-input/triplat-select-input.html">
+
+<link rel="import" href="../triplat-note/triplat-note.html">
+
+<link rel="import" href="../tricore-url/tricore-url.html">
+
+<link rel="import" href="../iron-icons/iron-icons.html">
+<link rel="import" href="../iron-icons/communication-icons.html">
+<link rel="import" href="../iron-icons/hardware-icons.html">
+<link rel="import" href="../iron-icons/av-icons.html">
+<link rel="import" href="../iron-icons/device-icons.html">
+<link rel="import" href="../iron-input/iron-input.html">
+<link rel="import" href="../iron-image/iron-image.html">
+<link rel="import" href="../paper-button/paper-button.html">
+<link rel="import" href="../paper-material/paper-material.html">
+<link rel="import" href="../paper-input/paper-input.html">
+<link rel="import" href="../paper-item/paper-item.html">
+<link rel="import" href="../paper-header-panel/paper-header-panel.html">
+<link rel="import" href="../paper-fab/paper-fab.html">
+<link rel="import" href="../paper-tabs/paper-tabs.html">
+<link rel="import" href="../paper-tooltip/paper-tooltip.html">
+<link rel="import" href="../paper-badge/paper-badge.html">
+<link rel="import" href="../paper-radio-button/paper-radio-button.html">
+
+<link rel="import" href="../paper-spinner/paper-spinner.html">
+<link rel="import" href="../iron-flex-layout/iron-flex-layout.html">
+
+<link rel="import" href="../triplat-loading-indicator/triplat-loading-indicator.html">
+<link rel="import" href="tricomp-alert-message.html">
+
+<link rel="import" href="room-reservation-behavior.html">
+<link rel="import" href="room-reservation-page-behavior.html">
+
+<dom-module id="tripage-equipment-details">
+
+	<link rel="import" type="css" href="shared.css">
+
+	<style>
+
+		:host {
+			@apply(--layout-vertical);
+			font-size: 14px;
+		}
+
+		section {
+			padding: 5px 10px;
+		}
+		section:first-child {
+			padding-top: 10px;
+		}
+
+		triplat-note {
+			--triplat-note-container: {
+				border: none;
+				padding: 0;
+			};
+		}
+
+		.equipment-image {
+			width: 100%;
+			--iron-image-width: 100%;
+		}
+
+		.hold-time-message {
+			margin-bottom: 10px;
+		}
+
+		.page-title {
+			font-size: 16px;
+		}
+
+		.section-title {
+			font-weight: bold;
+		}
+
+	</style>
+
+	<template>
+
+		<tricore-url raw-url="/getCompanyFile.jsp?fileLoc=" bind-url="{{imgUrl}}"></tricore-url>
+
+		<!-- <triplat-debug message="tripage-equipment-details.params" value="{{params}}"></triplat-debug> -->
+
+		<triplat-loading-indicator show="[[_isBusy(isBusy, equipmentDetailsLoading, _reservationLocationsLoading)]]"></triplat-loading-indicator>
+
+		<triplat-ds id="applicationSettings" name="applicationSettings" data="{{applicationSettings}}"></triplat-ds>
+
+		<triplat-ds id="equipmentDetails" name="equipmentDetails" data="{{equipmentDetails}}" loading="{{equipmentDetailsLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[specId]]"></triplat-ds-context>
+			<triplat-ds-context name="reservationLocations" context-id="[[resourceId]]"></triplat-ds-context>
+			<triplat-ds-instance instance-id="{{params.equipmentId}}"></triplat-ds-instance>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-equipment-details.equipmentDetails" value="{{equipmentDetails}}"></triplat-debug> -->
+
+		<!-- <triplat-ds id="equipmentSpecs" name="equipmentSpecs" data="{{equipmentSpecs}}" loading="{{equipmentSpecsLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[specId]]"></triplat-ds-context>
+			<triplat-ds-context name="reservationLocations" context-id="[[resourceId]]"></triplat-ds-context>
+			<triplat-ds-instance instance-id="{{equipmentSpecsParams.equipmentId}}"></triplat-ds-instance>
+		</triplat-ds> -->
+		<!-- <triplat-debug message="tripage-equipment-details.equipmentSpecs" value="{{equipmentSpecs}}"></triplat-debug> -->
+
+		<triplat-ds id="reservationLocation" name="reservationLocations" data="{{_reservationLocation}}" loading="{{_reservationLocationsLoading}}">
+			<triplat-ds-context name="myReservationManagers" context-id="[[pageContextId]]"></triplat-ds-context>
+			<triplat-ds-instance instance-id="[[resourceId]]"></triplat-ds-instance>
+		</triplat-ds>
+		<!-- <triplat-debug message="tripage-equipment-order.reservationLocation" value="{{_reservationLocation}}"></triplat-debug> -->
+
+		<triplat-ds id="currentUser" name="currentUser" data="{{currentUser}}"></triplat-ds>
+
+		<tricomp-page-header page-title="[[_reservationLocation.room.value]]" show-back-button on-back-tap="_handleBackTap"></tricomp-page-header>
+
+		<div class="page-main">
+			<div class="page-wrap">
+		
+				<tricomp-alert-message danger icon="ibm:clock-time" id="holdTimeMessage" class="hold-time-message" show$="[[_reservationLocation.holdTimeDeadline]]" show-tooltip-indicator-icon>
+					<span hidden$="[[holdTimeExpired]]">Hold expires in</span>
+					<triplat-countdown class="hold-time-countdown"
+						name="booking-expiration"
+						deadline="[[_reservationLocation.holdTimeDeadline]]"
+						expired-text="Hold time is expired."
+						timezone="[[currentUser._TimeZoneId]]"
+						is-expired="{{holdTimeExpired}}">
+					</triplat-countdown>
+				</tricomp-alert-message>
+				<paper-tooltip for="holdTimeMessage" position="bottom" offset="5" animation-delay="100" fit-to-visible-bounds>When the hold time on this room expires, all added food and equipment are not saved, and the room is removed for this reservation.</paper-tooltip>
+
+				<section hidden$="[[_isEmpty(equipmentDetails.name)]]">
+					<div class="page-title">[[equipmentDetails.name]]</div>
+				</section>
+
+				<template is="dom-if" if="[[_showImage(applicationSettings)]]">
+					<section hidden$="[[!equipmentImageLoaded]]">
+						<iron-image class="equipment-image" src="{{_computeImageUrl(equipmentDetails.image, imgUrl)}}" loaded="{{equipmentImageLoaded}}"></iron-image>
+					</section>
+				</template>
+
+				<section hidden$="[[_isEmpty(equipmentDetails.descriptionNotes)]]">
+					<div class="section-title">Equipment Details</div>
+					<triplat-note value="[[equipmentDetails.descriptionNotes]]"></triplat-note>
+				</section>
+
+				<section hidden$="[[_isEmpty(equipmentDetails.featuresNotes)]]">
+					<div class="section-title">Features</div>
+					<triplat-note value="[[equipmentDetails.featuresNotes]]"></triplat-note>
+				</section>
+
+			</div>
+		</div>
+
+	</template>
+</dom-module>
+<script>
+	Polymer({
+
+		is: "tripage-equipment-details",
+		behaviors: [RoomReservationBehavior, RoomReservationPageBehavior],
+
+		properties: {
+			equipmentDetails: Object,
+			favoriteRooms: Array,
+
+			reservationManager: Object,
+
+			preCreateComplete: {
+				type: Boolean,
+				value: false
+			},
+      	},
+
+		listeners: {
+		},
+
+		_handleBackTap: function(e) {
+			this.fire("navigate-equipment-order-back");
+		},
+
+		_isBusy: function(isBusy, equipmentDetailsLoading, _reservationLocationsLoading) {
+			return isBusy || equipmentDetailsLoading || _reservationLocationsLoading;
+		},
+
+		_isEmpty: function(val) {
+			return !val || val == "";
+		}
+	});
+</script>
